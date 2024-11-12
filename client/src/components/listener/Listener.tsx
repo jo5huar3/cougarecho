@@ -1,26 +1,64 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Home, Settings, Menu, PlusCircle, User, Edit2, Loader, X, Music, LogOut } from 'lucide-react';
+import { Search, Home, Settings, Menu, PlusCircle, User, Edit2, Loader, X, Music, LogOut, Play } from 'lucide-react';
 
-// Mock API
+interface Album {
+  id: number;
+  title: string;
+  artist: string;
+  imageUrl: string;
+  playCount: number;
+  lastPlayed: string;
+}
+
+interface UserProfile {
+  name: string;
+  playlists: number;
+}
+
+// Mock API to simulate database calls
 const mockApi = {
-  fetchUserProfile: () => new Promise(resolve => 
-    setTimeout(() => resolve({ name: 'John Doe', playlists: 12 }), 500)
+  fetchUserProfile: () => new Promise<UserProfile>(resolve => 
+    setTimeout(() => resolve({ 
+      name: 'John Doe', 
+      playlists: 12 
+    }), 500)
   ),
-  fetchPlaylists: () => new Promise(resolve => 
+  fetchTopAlbums: () => new Promise<Album[]>(resolve => 
     setTimeout(() => resolve([
-      { id: 1, name: 'My Playlist 1', imageUrl: '/api/placeholder/120/120' },
-      { id: 2, name: 'My Playlist 2', imageUrl: '/api/placeholder/120/120' },
-      { id: 3, name: 'My Playlist 3', imageUrl: '/api/placeholder/120/120' },
+      { 
+        id: 1, 
+        title: 'Hit me hard and soft',
+        artist: 'Billie Eilish',
+        imageUrl: '/api/placeholder/400/400',
+        playCount: 1205,
+        lastPlayed: '2024-05-01T14:48:00.000Z'
+      },
+      { 
+        id: 2, 
+        title: 'Midnights',
+        artist: 'Taylor Swift',
+        imageUrl: '/api/placeholder/400/400',
+        playCount: 986,
+        lastPlayed: '2024-04-28T09:32:00.000Z'
+      },
+      { 
+        id: 3, 
+        title: 'Dawn FM',
+        artist: 'The Weeknd',
+        imageUrl: '/api/placeholder/400/400',
+        playCount: 754,
+        lastPlayed: '2024-04-25T22:15:00.000Z'
+      }
     ]), 500)
   ),
 };
 
 const Listener = () => {
-  const [userProfile, setUserProfile] = useState({ name: '', playlists: 0 });
-  const [playlists, setPlaylists] = useState([]);
+  const [userProfile, setUserProfile] = useState<UserProfile>({ name: '', playlists: 0 });
+  const [topAlbums, setTopAlbums] = useState<Album[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [searchValue, setSearchValue] = useState('');
   const [isMenuExpanded, setIsMenuExpanded] = useState(false);
   const navigate = useNavigate();
@@ -31,12 +69,12 @@ const Listener = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const [profileData, playlistsData] = await Promise.all([
+        const [profileData, albumsData] = await Promise.all([
           mockApi.fetchUserProfile(),
-          mockApi.fetchPlaylists()
+          mockApi.fetchTopAlbums()
         ]);
         setUserProfile(profileData);
-        setPlaylists(playlistsData);
+        setTopAlbums(albumsData);
       } catch (err) {
         setError('Failed to fetch data. Please try again later.');
         console.error('Error fetching data:', err);
@@ -70,6 +108,10 @@ const Listener = () => {
 
   const handleLogout = () => {
     navigate('/#', { state: { message: "You've been logged out" } });
+  };
+
+  const handleAlbumClick = (albumId: number) => {
+    navigate(`/album/${albumId}`);
   };
 
   if (isLoading) {
@@ -178,13 +220,33 @@ const Listener = () => {
           </div>
         </div>
 
-        {/* Playlists section */}
+        {/* Top Albums section */}
         <div className="bg-[#1A1A1A] rounded-lg p-6">
-          <h3 className="text-xl font-bold mb-4">All Playlists</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold">Top Albums</h3>
+          </div>
           <div className="grid grid-cols-3 gap-4">
-            {playlists.map((playlist) => (
-              <div key={playlist.id} className="bg-[#2A2A2A] rounded-lg aspect-square">
-                <img src={playlist.imageUrl} alt={playlist.name} className="w-full h-full object-cover rounded-lg" />
+            {topAlbums.map((album) => (
+              <div
+                key={album.id}
+                className="bg-[#2A2A2A] rounded-lg p-4 transition-all duration-300 hover:bg-[#3A3A3A] cursor-pointer group"
+                onClick={() => handleAlbumClick(album.id)}
+              >
+                <div className="relative">
+                  <img
+                    src={album.imageUrl}
+                    alt={`${album.title} by ${album.artist}`}
+                    className="w-full aspect-square object-cover rounded-md mb-3"
+                  />
+                  <button className="absolute bottom-2 right-2 w-10 h-10 bg-[#1ED760] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+                    <Play className="w-5 h-5 text-black fill-current" />
+                  </button>
+                </div>
+                <h4 className="font-semibold text-[#EBE7CD] truncate">{album.title}</h4>
+                <p className="text-sm text-gray-400 truncate">{album.artist}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {album.playCount.toLocaleString()} plays
+                </p>
               </div>
             ))}
           </div>

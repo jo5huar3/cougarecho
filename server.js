@@ -2,27 +2,24 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import apiRoutes from './routes/api.js'; // Import other routes if you have them
-import userRoutes from './routes/user.js'; // Import the user routes
-import songRoutes from './routes/songs.js';
-import path from 'path';
+
+import path, { dirname } from 'path';
 import { getConnectionPool } from './database.js';
 import corsOptions from './config/corsOptions.js';
 
+
 dotenv.config(); // Load environment variables
 const port = process.env.PORT || 8080; // The port for the server
-const local_bool = false;//process.env.ISLOCAL || false;
+const local_bool = process.env.ISLOCAL || false;
 const app = express();
 if (!local_bool) {
     app.enable('trust proxy');
 } else {
     app.use(cors(corsOptions)); // Enable CORS
 }
-
 app.use(express.json()); // Middleware to parse incoming JSON requests
 
 app.use('/api', apiRoutes);
-app.use('/api/users', userRoutes); // Register the users route
-app.use('/api/songs', songRoutes); // Use /api/songs route for song operations
 if (!local_bool) {
     // Deployment settings
     app.use(express.static(path.join('client/dist')));
@@ -32,7 +29,11 @@ if (!local_bool) {
     });
     app.all(/.*/, function (req, res) {
         res.redirect('/');
-    })
+        //})
+        /*app.get('*', (req, res) => {
+            res.sendFile(path.join)
+        })*/
+    });
 }
 // Connect to the database
 getConnectionPool().catch((err) => {

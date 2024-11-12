@@ -64,6 +64,7 @@ const Admin = () => {
   const [songToRemove, setSongToRemove] = useState(null);
   const [searchValue, setSearchValue] = useState('');
   const [isMenuExpanded, setIsMenuExpanded] = useState(false);
+  const [showReportDropdown, setShowReportDropdown] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -93,12 +94,21 @@ const Admin = () => {
     }
   }, [location]);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showReportDropdown && !event.target.closest('.report-dropdown')) {
+        setShowReportDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showReportDropdown]);
+
   const handleLogout = () => {
-    // Clear any auth tokens or user data
     localStorage.removeItem('userToken');
     sessionStorage.clear();
     
-    // Navigate to login with logout message
     navigate('/#', { 
       state: { 
         showLogoutMessage: true,
@@ -109,6 +119,10 @@ const Admin = () => {
 
   const handleCreatePlaylist = () => {
     navigate('/newplaylist');
+  };
+
+  const handleActivityTracking = () => {
+    navigate('/tracking');
   };
 
   const handleRemoveSong = async (songId, songName) => {
@@ -138,6 +152,12 @@ const Admin = () => {
     } else {
       navigate('/admin', { replace: true });
     }
+  };
+
+  const handleGenerateReport = (type) => {
+    console.log(`Generating ${type} report...`);
+    // Add your report generation logic here
+    setShowReportDropdown(false);
   };
 
   if (isLoading) {
@@ -235,18 +255,60 @@ const Admin = () => {
         {/* Main rectangle */}
         <div className="flex-1 bg-[#1A1A1A] rounded-lg p-6">
           {/* Profile section */}
-          <div className="mb-8 flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="w-32 h-32 bg-gray-700 rounded-full mr-6"></div>
-              <div>
-                <p className="text-sm text-gray-400">Profile</p>
-                <h2 className="text-4xl font-bold">{adminProfile.name}</h2>
-                <p className="text-sm text-gray-400">{adminProfile.playlists} Playlists</p>
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <div className="w-32 h-32 bg-gray-700 rounded-full mr-6"></div>
+                <div>
+                  <p className="text-sm text-gray-400">Profile</p>
+                  <h2 className="text-4xl font-bold">{adminProfile.name}</h2>
+                  <p className="text-sm text-gray-400">{adminProfile.playlists} Playlists</p>
+                </div>
               </div>
+              <Link to="/useredit" className="text-gray-400 hover:text-white">
+                <Edit2 className="w-5 h-5" />
+              </Link>
             </div>
-            <Link to="/useredit" className="text-gray-400 hover:text-white">
-              <Edit2 className="w-5 h-5" />
-            </Link>
+            
+            {/* Buttons section */}
+            <div className="flex space-x-4 mt-4">
+              <div className="relative report-dropdown">
+                <button
+                  onClick={() => setShowReportDropdown(!showReportDropdown)}
+                  className="bg-[#1ED760] hover:bg-[#1db954] text-black font-semibold py-3 px-6 rounded-full transition-colors duration-200"
+                >
+                  Generate Report
+                </button>
+                {showReportDropdown && (
+                  <div className="absolute top-full left-0 mt-2 w-48 bg-[#2A2A2A] rounded-lg shadow-lg overflow-hidden z-50">
+                    <button
+                      onClick={() => handleGenerateReport('song')}
+                      className="w-full px-4 py-2 text-left text-[#EBE7CD] hover:bg-[#3A3A3A] transition-colors"
+                    >
+                      Song Report
+                    </button>
+                    <button
+                      onClick={() => handleGenerateReport('user')}
+                      className="w-full px-4 py-2 text-left text-[#EBE7CD] hover:bg-[#3A3A3A] transition-colors"
+                    >
+                      User Report
+                    </button>
+                    <button
+                      onClick={() => handleGenerateReport('artist')}
+                      className="w-full px-4 py-2 text-left text-[#EBE7CD] hover:bg-[#3A3A3A] transition-colors"
+                    >
+                      Artist Report
+                    </button>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={handleActivityTracking}
+                className="bg-[#2A2A2A] hover:bg-[#3A3A3A] text-[#EBE7CD] font-semibold py-3 px-6 rounded-full transition-colors duration-200"
+              >
+                Activity Tracking System
+              </button>
+            </div>
           </div>
 
           {/* Issues section */}
