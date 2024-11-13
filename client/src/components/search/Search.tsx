@@ -61,7 +61,7 @@ const SearchPage: React.FC = () => {
       });
 
       setResults({
-        songs: response.data,
+        songs: Array.isArray(response.data) ? response.data : [],
         artists: []
       });
       setErrMsg(null);
@@ -87,9 +87,12 @@ const SearchPage: React.FC = () => {
     navigate({ search: params.toString() });
   };
 
-  const formatDuration = (duration: string) => {
+  const formatDuration = (duration: string | null) => {
+    if (!duration) {
+      return '00:00'; // Default value for invalid duration
+    }
     const [minutes, seconds] = duration.split(':');
-    return `${minutes}:${seconds.padStart(2, '0')}`;
+    return `${minutes || '00'}:${seconds ? seconds.padStart(2, '0') : '00'}`;
   };
 
   const handleLogout = () => {
@@ -159,6 +162,7 @@ const SearchPage: React.FC = () => {
               value={searchKeyword}
               onChange={(e) => updateSearchParams(e.target.value)}
               placeholder="Search for Song or Artist"
+              id="search-bar"
               className="w-full bg-[#2A2A2A] rounded-full py-2 pl-10 pr-4 text-sm text-[#EBE7CD] focus:outline-none"
             />
           </div>
@@ -179,9 +183,9 @@ const SearchPage: React.FC = () => {
                     >
                       <Play className="w-4 h-4 mr-3 text-gray-400" />
                       <div className="flex-grow">
-                        <p className="font-semibold">{song.song_name}</p>
-                        <p className="text-sm text-gray-400">Artist: {song.artist_name}</p>
-                        <p className="text-sm text-gray-400">Album: {song.album_name}</p>
+                        <p className="font-semibold">{song.song_name || 'Unknown Song'}</p>
+                        <p className="text-sm text-gray-400">Artist: {song.artist_name || 'Unknown Artist'}</p>
+                        <p className="text-sm text-gray-400">Album: {song.album_name || 'Unknown Album'}</p>
                       </div>
                       <p className="text-sm text-gray-400">{formatDuration(song.duration)}</p>
                     </div>
