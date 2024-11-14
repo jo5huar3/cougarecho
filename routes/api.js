@@ -281,36 +281,42 @@ router.get('/register/:username', async (req, res) => {
 // End /register get method:
 
 // Begin /register
-router.post('/register', async (req, res) => {
+router.post("/register", async (req, res) => {
   try {
     const { username, password, role_id } = req.body;
     if (!role_id || !password || !username) {
-      return res.status(400).json({ error: 'All fields are required.' });
+      return res.status(400).json({ error: "All fields are required." });
     }
+
     const password_hash = await bcrypt.hash(password, 4);
     const myQuery = `
           INSERT INTO [User] (username, password_hash, created_at, role_id)
           OUTPUT inserted.user_id, inserted.username, inserted.role_id
           VALUES (@user_name, @password_hash, GETDATE(), @role_id)`;
+
     const request = new sql.Request();
-    request.input('user_name', sql.NVarChar, username);
-    request.input('password_hash', sql.NVarChar, password_hash);
-    request.input('role_id', sql.Int, userRoles[role_id]);
-    const result = await request.query(myQuery)//, async (err, result) => {
+    request.input("user_name", sql.NVarChar, username);
+    request.input("password_hash", sql.NVarChar, password_hash);
+    request.input("role_id", sql.Int, role_id); // Pass role_id directly
+
+    const result = await request.query(myQuery);
+
     if (result?.rowsAffected[0] == 1) {
       const token = jwt.sign(
         {
-          user_id: result.recordset[0], user_name: result.recordset[1], role_id: result.recordset[2]
+          user_id: result.recordset[0].user_id,
+          username: result.recordset[0].username,
+          role_id: result.recordset[0].role_id,
         },
         SECRET_KEY,
-        { expiresIn: '1h' }
+        { expiresIn: "1h" }
       );
       res.json({ token });
     } else {
-      res.json({ error: "database server did not return anything." })
+      res.json({ error: "Database server did not return anything." });
     }
   } catch (error) {
-    res.json({ "error": error.message })
+    res.json({ error: error.message });
   }
 });
 // End /register
@@ -372,6 +378,50 @@ router.get('/songs/search', async (req, res) => {
 });
 
 //End Thinh Bui
+
+//Will Nguyen Begin
+//Begin New Playlist
+
+router.post("/playlist/new", async (req, res) => {
+  try {
+    const { title, userId, avatar } = req.body;
+
+    if (!title || !userId) {
+      return res
+        .status(400)
+        .json({ message: "Playlist title and user ID are required." });
+    }
+
+    const request = new sql.Request();
+    request.input("title", sql.VarChar(50), title);
+    request.input("userId", sql.Int, userId);
+    request.input("avatar", sql.VarChar(255), avatar || null); // avatar can be null
+
+    const result = await request.query(`
+      INSERT INTO [Playlist] (title, user_id, created_at, updated_at, avatar)
+      OUTPUT inserted.playlist_id
+      VALUES (@title, @userId, GETDATE(), GETDATE(), @avatar)
+    `);
+
+    const playlistId = result.recordset[0].playlist_id;
+    res
+      .status(200)
+      .json({ message: "Playlist created successfully", playlistId });
+  } catch (err) {
+    console.error("Error creating playlist:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Add song to playlist
+router.post("/playlist/:playlist_id/song", async (req, res) => {});
+
+// Delete song from playlist
+router.delete("/playlist/:playlist_id/song/:song_id", async (req, res) => {});
+
+// Delete playlist
+router.delete("/playlist/:playlist_id", async (req, res) => {});
+//Will Nguyen End
 export default router;
 /*
 router.post("/new1album", upload.single('img'), async function (req, res, next) {
