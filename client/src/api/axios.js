@@ -1,5 +1,5 @@
 import axios from 'axios';
-const ISLOCAL = true;
+const ISLOCAL = false;
 const BASE_URL = ISLOCAL ? 'http://localhost:8080/api' : '/api';
 
 export default axios.create({
@@ -8,6 +8,6 @@ export default axios.create({
 
 export const axiosPrivate = axios.create({
     baseURL: BASE_URL,
-    headers: { 'Content-Type'   : 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     withCredentials: true
 });

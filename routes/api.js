@@ -30,6 +30,29 @@ router.get("/data", async (req, res) => {
 router.get("/test", (req, res) => {
   res.json([{ "test": "hello world!" }])
 });
+// Begin Josh
+router.get('/listener/:id', async (req, res) => {
+  try {
+    const user_id = req.params.id;
+    const request = await new sql.Request();
+    request.input('user_id', sql.Int, user_id)
+    const myQuery = `SELECT U.display_name, \
+            ( \
+            SELECT COUNT(*) FROM [Playlist] P where P.user_id = U.user_id \
+            ) playlists FROM [User] U WHERE U.user_id = @user_id`;
+    request.query(myQuery, async (err, result) => {
+      console.log(result?.recordset?.[0])
+      if (result?.recordset?.length > 0) {
+        return res.json(result.recordset[0]);
+      } else {
+        return res.json({ display_name: '', playlists: '' });
+      }
+    })
+
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
 // Get artist profile and counts
 router.get('/artist/:id', async (req, res) => {
   try {

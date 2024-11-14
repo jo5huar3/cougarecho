@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Search, Home, Settings, Menu, PlusCircle, User, Edit2, Loader, X, Music, LogOut, Play } from 'lucide-react';
+import { UserContext } from '../../context/UserContext';
+import axios from '../../api/axios';
 
 interface Album {
   id: number;
@@ -18,32 +20,32 @@ interface UserProfile {
 
 // Mock API to simulate database calls
 const mockApi = {
-  fetchUserProfile: () => new Promise<UserProfile>(resolve => 
-    setTimeout(() => resolve({ 
-      name: 'John Doe', 
-      playlists: 12 
+  fetchUserProfile: () => new Promise<UserProfile>(resolve =>
+    setTimeout(() => resolve({
+      name: 'John Doe',
+      playlists: 12
     }), 500)
   ),
-  fetchTopAlbums: () => new Promise<Album[]>(resolve => 
+  fetchTopAlbums: () => new Promise<Album[]>(resolve =>
     setTimeout(() => resolve([
-      { 
-        id: 1, 
+      {
+        id: 1,
         title: 'Hit me hard and soft',
         artist: 'Billie Eilish',
         imageUrl: '/api/placeholder/400/400',
         playCount: 1205,
         lastPlayed: '2024-05-01T14:48:00.000Z'
       },
-      { 
-        id: 2, 
+      {
+        id: 2,
         title: 'Midnights',
         artist: 'Taylor Swift',
         imageUrl: '/api/placeholder/400/400',
         playCount: 986,
         lastPlayed: '2024-04-28T09:32:00.000Z'
       },
-      { 
-        id: 3, 
+      {
+        id: 3,
         title: 'Dawn FM',
         artist: 'The Weeknd',
         imageUrl: '/api/placeholder/400/400',
@@ -55,6 +57,7 @@ const mockApi = {
 };
 
 const Listener = () => {
+  const { user } = useContext(UserContext)
   const [userProfile, setUserProfile] = useState<UserProfile>({ name: '', playlists: 0 });
   const [topAlbums, setTopAlbums] = useState<Album[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -69,8 +72,10 @@ const Listener = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const [profileData, albumsData] = await Promise.all([
-          mockApi.fetchUserProfile(),
+        const response = await axios.get('/listener/' + user.user_id);
+        const profileData = { name: response?.data?.display_name, playlists: response?.data?.playlists }
+        console.log(profileData)
+        const [albumsData] = await Promise.all([
           mockApi.fetchTopAlbums()
         ]);
         setUserProfile(profileData);
