@@ -380,8 +380,8 @@ router.get('/songs/search', async (req, res) => {
 //End Thinh Bui
 
 //Will Nguyen Begin
-//Begin New Playlist
 
+//Start: Create New Playlist
 router.post("/playlist/new", async (req, res) => {
   try {
     const { title, userId, avatar } = req.body;
@@ -412,16 +412,54 @@ router.post("/playlist/new", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+//End: Create New Playlist
 
-// Add song to playlist
-router.post("/playlist/:playlist_id/song", async (req, res) => {});
+//Start: Add song to playlist
+router.post("/playlist/:playlist_id/song", async (req, res) => {
+  try{
+    //Code to handle request goes here
+    const {playlist_id} = req.params;
+    const {song_id, active} = req.body;
 
-// Delete song from playlist
+    if (!playlist_id || !song_id){
+      return res.status(400).json({message: "Playlist ID and song are required."});
+    }
+
+    const request = new sql.Request();
+
+    request.input("playlist_id", sql.Int, playlist_id);
+    request.input("song_id", sql.Int, song_id);
+    request.input("created_at", sql.DateTime, new Date());
+    request.input("updated_at", sql.DateTime, new Date());
+    request.input("active", sql.Bit, active !== undefined ? active : 1); // Default to active if not provided
+
+    const result = await request.query(`
+      INSERT INTO [PlaylistSongs] (playlist_id, song_id, created_at, updated_at, active)
+      VALUES (@playlist_id, @song_id, @created_at, @updated_at, @active)
+      `);
+
+    if (result.rowsAffected[0] === 1) {
+      res.status(200).json({ message: "Song added to playlist successfully" });
+    } else {
+      res.status(500).json({ error: "Failed to add song to playlist" });
+    }
+      
+
+
+  }catch(err){
+    console.error("Error adding song to playlist:", err);
+    res.status(500).json({error: "Internal server error"});
+  }
+});
+//End: Add Song to Playlist
+// Start: Delete song from playlist
 router.delete("/playlist/:playlist_id/song/:song_id", async (req, res) => {});
 
 // Delete playlist
 router.delete("/playlist/:playlist_id", async (req, res) => {});
 //Will Nguyen End
+
+
 export default router;
 /*
 router.post("/new1album", upload.single('img'), async function (req, res, next) {
