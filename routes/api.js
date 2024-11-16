@@ -122,98 +122,152 @@ const album_upload = upload.fields([
   { name: 'song', maxCount: 20 },
   { name: 'img', maxCount: 1 }
 ])
-// Begin /album-upload
-router.post("/song-insert", upload.single('song'), async function (req, res, next) {
-
-  console.log(req?.body)
-  const user_id = req?.body?.user_id
-  const file = req?.file;
-  const album_id = req?.body?.album_id
-  const song_name = 'NO-NAME';
-  const isAvailable = true;
-  console.log("user_id: ", user_id, ", file", file)
-  if (!file || !user_id || !album_id) {
-    return res.status(400).json({ error: "File upload failed. Neccesary fields not received." });
-  }
-  //const transaction = new sql.Transaction()
-  //transaction.begin(err => {
-
-
+// Song upload endpoint
+router.post("/song-insert", upload.single('song'), async function (req, res) {
   try {
-    const request1 = new sql.Request();
-    request1.input('song_name', sql.VarChar, song_name);
-    request1.input('user_id', sql.Int, user_id);
-    request1.input('album_id', sql.Int, album_id);
-    request1.input('isAvailable', sql.Bit, isAvailable);
-    //request1.input('OutputTable', sql.Table, "isAvailable");
+    const user_id = req?.body?.user_id;
+    const file = req?.file;
+    const album_id = req?.body?.album_id;
+    const song_name = 'NO-NAME';
+    const isAvailable = true;
 
-    console.log("Starting query1....")
-    const result1 = await request1.query(
-      'DECLARE @InsertedSongs TABLE (id INT); \
-      INSERT INTO [Song] (song_name, album_id, artist_id, created_at, isAvailable) \
-      OUTPUT inserted.song_id INTO @InsertedSongs \
-      VALUES( @song_name, @album_id, (SELECT A.artist_id FROM [Artist] A WHERE A.user_id = @user_id), GETDATE(), @isAvailable); \
-      SELECT * FROM @InsertedSongs;');
-    console.log("Finished query1")
-    console.log(result1?.rowsAffected[0], !result1?.[0]?.song_id)
-    console.log(result1?.recordset?.[0].id)
-    const song_id = result1?.recordset?.[0].id
-    if (!song_id) {
-      return res.status(500).json({ message: "Line 154 Error" });
+    console.log("user_id:", user_id, ", file:", file);
+    if (!file || !user_id || !album_id) {
+      return res.status(400).json({ error: "File upload failed. Necessary fields not received." });
     }
-    console.log("Finished query1")
+
     const filePath = file.path;
     const fileBuffer = fs.readFileSync(filePath);
+    const request = new sql.Request();
 
+    request.input('song_name', sql.VarChar, song_name);
+    request.input('user_id', sql.Int, user_id);
+    request.input('album_id', sql.Int, album_id);
+    request.input('isAvailable', sql.Bit, isAvailable);
+
+    console.log("Starting query to insert song...");
+    const result = await request.query(`
+      DECLARE @InsertedSongs TABLE (id INT);
+      INSERT INTO [Song] (song_name, album_id, artist_id, created_at, isAvailable)
+      OUTPUT inserted.song_id INTO @InsertedSongs
+      VALUES (@song_name, @album_id, 
+              (SELECT A.artist_id FROM [Artist] A WHERE A.user_id = @user_id), 
+              GETDATE(), @isAvailable);
+      SELECT * FROM @InsertedSongs;
+    `);
+
+    const song_id = result?.recordset?.[0]?.id;
+    if (!song_id) {
+      return res.status(500).json({ error: "Error inserting song." });
+    }
+
+    console.log("Inserting song file...");
     const request2 = new sql.Request();
     request2.input('song_id', sql.Int, song_id);
     request2.input('file_name', sql.VarChar, file.originalname);
-    request2.input('song_file', sql.VarBinary(sql.MAX), fileBuffer)
-    request2.query(`INSERT INTO [SongFile] (song_id, song_file, file_name)
-              VALUES (@song_id, @song_file, @file_name)`);
+    request2.input('song_file', sql.VarBinary(sql.MAX), fileBuffer);
+
+    await request2.query(`
+      INSERT INTO [SongFile] (song_id, song_file, file_name)
+      VALUES (@song_id, @song_file, @file_name);
+    `);
+
     fs.unlinkSync(filePath);
-    console.log("Finished query2 *****")
-    return res.status(200).json({ message: "Success" })
+    console.log("Song upload successful");
+    return res.status(200).json({ message: "Song uploaded successfully" });
+
   } catch (err) {
-    console.log("ERROR: ", err.message)
-    return res.status(500).json({ message: err.message })
-    //console.log('Transaction rolled back.')
-  }
-})
-// NewAblum page: add album endpoint
-// Begin /album-insert
-router.post("/album-insert", upload.single('img'), async function (req, res, next) {
-  try {
-    const user_id = req?.body?.user_id
-    const file = req?.file;
-    const album_name = req?.body?.albumName
-    console.log("user_id: " + user_id + ", album_name: " + album_name)
-    if (!file || !user_id || !album_name) {
-      return res.status(400).json({ error: "File upload failed. No file received." });
+    console.log("Full error:", err);
+
+    // Check for the specific trigger error based on the error message
+    let errorMessage = err.message;
+
+    // Check if precedingErrors contains the trigger's custom error message
+    if (err.precedingErrors && err.precedingErrors.length > 0) {
+      const customError = err.precedingErrors.find(error =>
+        error.message.includes("Unverified artists can only upload one song per day")
+      );
+      if (customError) {
+        errorMessage = customError.message;
+      }
     }
+
+    if (errorMessage.includes("Unverified artists can only upload one song per day")) {
+      return res.status(403).json({ error: "Unverified artists can only upload one song per day." });
+    } else {
+      return res.status(500).json({ error: errorMessage });
+    }
+  }
+});
+
+
+// Album upload endpoint
+router.post("/album-insert", upload.single('img'), async function (req, res) {
+  try {
+    const user_id = req?.body?.user_id;
+    const file = req?.file;
+    const album_name = req?.body?.albumName;
+
+    console.log("user_id:", user_id, ", album_name:", album_name);
+    if (!file || !user_id || !album_name) {
+      return res.status(400).json({ error: "File upload failed. Required fields missing." });
+    }
+
     const filePath = file.path;
     const fileBuffer = fs.readFileSync(filePath);
-    const albRequest = new sql.Request();
-    albRequest.input('user_id', sql.Int, user_id)
-    albRequest.input('album_name', sql.VarChar, album_name)
-    albRequest.input('album_cover', sql.VarBinary(sql.MAX), fileBuffer)
-    const albResult = await albRequest.query(
-      'INSERT INTO [Album]  (create_at, update_at, artist_id, album_name, album_cover) \
-       OUTPUT inserted.artist_id, inserted.album_id \
-       VALUES ( GETDATE(), GETDATE(), (SELECT A.artist_id FROM [Artist] A WHERE A.user_id = @user_id), @album_name, @album_cover)');
-    if (albResult?.rowsAffected[0] == 1) {
-      console.log(albResult?.recordset?.[0], 'Succsessful upload into DB.')
+    const request = new sql.Request();
+
+    request.input('user_id', sql.Int, user_id);
+    request.input('album_name', sql.VarChar, album_name);
+    request.input('album_cover', sql.VarBinary(sql.MAX), fileBuffer);
+
+    console.log("Inserting album...");
+    
+    const result = await request.query(`
+      DECLARE @InsertedAlbum TABLE (album_id INT);
+      INSERT INTO [Album] (create_at, update_at, artist_id, album_name, album_cover)
+      OUTPUT inserted.album_id INTO @InsertedAlbum
+      VALUES (GETDATE(), GETDATE(), 
+              (SELECT A.artist_id FROM [Artist] A WHERE A.user_id = @user_id), 
+              @album_name, @album_cover);
+      SELECT album_id FROM @InsertedAlbum;
+    `);
+
+    const album_id = result?.recordset[0]?.album_id;
+    if (album_id) {
+      fs.unlinkSync(filePath);
+      console.log("Album upload successful");
+      return res.json({ album_id });
+    } else {
+      return res.status(500).json({ error: "Album upload failed." });
     }
-    //const artist_id = albResult.recordset?.[0].artist_id;
-    const album_id = albResult.recordset?.[0].album_id;
-    fs.unlinkSync(filePath);
-    return res.json({ album_id })
+  } catch (err) {
+    console.log("Full error:", err);
+
+    // Check for the specific trigger error based on the error message
+    let errorMessage = err.message;
+
+    // Check if precedingErrors contains the trigger's custom error message
+    if (err.precedingErrors && err.precedingErrors.length > 0) {
+      const customError = err.precedingErrors.find(error =>
+        error.message.includes("Unverified artists can only create one album per day")
+      );
+      if (customError) {
+        errorMessage = customError.message;
+      }
+    }
+
+    if (errorMessage.includes("Unverified artists can only create one album per day")) {
+      return res.status(403).json({ error: "Unverified artists can only create one album per day." });
+    } else {
+      return res.status(500).json({ error: errorMessage });
+    }
   }
-  catch (err) {
-    console.log("ERROR: ", err.message);
-    return res.status(500)
-  }
-})
+});
+
+
+
+
 
 // Connection is successfull
 router.post("/artist/profile/update", async (req, res) => {
