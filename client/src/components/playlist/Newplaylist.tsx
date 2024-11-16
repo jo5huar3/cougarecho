@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, Home, Settings, Menu, PlusCircle, User, Play, Edit2, X, Music, LogOut, Image as ImageIcon } from 'lucide-react';
-import axios from 'axios';
+import axios from '../../api/axios';
 
 const apiRoutes = {
   test: '/api/test',                                    // Add /api prefix
@@ -79,6 +79,7 @@ const CreatePlaylistPage = () => {
 
   // Error boundary
   useEffect(() => {
+    const abortController = new AbortController();
     const handleError = (error) => {
       console.error('Runtime error:', error);
       setHasError(true);
@@ -86,7 +87,7 @@ const CreatePlaylistPage = () => {
 
     window.addEventListener('error', handleError);
     return () => window.removeEventListener('error', handleError);
-  }, []);
+  }, [searchQuery, selectedSongs]);
 
   // Test API connection on mount
   useEffect(() => {
@@ -156,7 +157,7 @@ const CreatePlaylistPage = () => {
         setIsSearching(true);
         setSearchError('');
         try {
-          const response = await api.get(`/songs/search?keyword=${query}`, {
+          const response = await api.get(`api/songs/search?keyword=${query}`, {
             signal: abortController.signal
           });
           if (!abortController.signal.aborted) {
@@ -254,50 +255,62 @@ const CreatePlaylistPage = () => {
     navigate('/login', { state: { message: "You've been logged out" } });
   };
 
-  // Handle search with debouncing
-  const handleSearchSongs = async (query) => {
+  // Handle search song
+  const handleSearchSongs = async (query: string) => {
     setSearchQuery(query);
-    setSearchError('');
     
-    if (query.length > 1) {
-      setIsSearching(true);
-      try {
-        console.log('Searching for:', query);
-        const response = await api.get('/songs/search', {
-          params: { 
-            keyword: query 
-          }
-        });
-        
-        console.log('Search response:', response.data);
-        
-        if (Array.isArray(response.data)) {
-          const filteredResults = response.data.filter(
-            result => !selectedSongs.some(selected => selected.song_id === result.song_id)
-          );
-          setSearchResults(filteredResults);
-        } else {
-          console.error('Unexpected response format:', response.data);
-          setSearchResults([]);
-        }
-      } catch (err) {
-        console.error('Search error:', err);
-        setSearchError(err.response?.data?.error || 'Failed to search songs. Please try again.');
-        setSearchResults([]);
-      } finally {
-        setIsSearching(false);
-      }
-    } else {
+    if (query.trim().length < 2) {
       setSearchResults([]);
+      return;
+    }
+  
+    setIsSearching(true);
+    const token = localStorage.getItem('token') || '';
+  
+    try {
+      const response = await api.get('/api/songs/search', {
+        params: { 
+          keyword: query.trim() // Make sure to trim the query
+        },
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+  
+      // Log the response for debugging
+      console.log('Search response:', response);
+  
+      if (Array.isArray(response.data)) {
+        const filteredResults = response.data.filter(result => 
+          !selectedSongs.some(selected => selected.song_id === result.song_id)
+        );
+        setSearchResults(filteredResults);
+        setSearchError('');
+      } else {
+        console.warn('Unexpected response format:', response.data);
+        setSearchResults([]);
+      }
+    } catch (error: any) {
+      console.error('Search error:', error.response?.data || error.message);
+      if (error.response?.status === 401) {
+        setError('Unauthorized: Please log in again.');
+        navigate('/login');
+      } else {
+        setSearchError('Failed to fetch search results.');
+      }
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
     }
   };
   // Add song to playlist with validation
   const addSongToPlaylist = (song) => {
-    console.log('Adding song:', song.song_name);
+    console.log('Adding song:', song);
     setSelectedSongs(prev => [...prev, {
       song_id: song.song_id,
       song_name: song.song_name,
       artist_name: song.artist_name,
+      album_name: song.album_name,
       duration: song.duration,
       dateAdded: new Date().toISOString(),
       active: 1
@@ -589,11 +602,10 @@ const CreatePlaylistPage = () => {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchSongs(e.target.value)}
                 placeholder="Search for songs"
                 disabled={isSearching}
-                className="w-full bg-[#2A2A2A] rounded-full py-2 pl-10 pr-4 text-sm text-[#EBE7CD] focus:outline-none focus:ring-2 focus:ring-[#1ED760] transition-colors disabled:opacity-50"
-                aria-label="Search songs"
+                className="w-full bg-[#2A2A2A] rounded-full py-2 pl-10 pr-4 text-sm text-[#EBE7CD] focus:outline-none focus:ring-2 focus:ring-[#1ED760]"
               />
               {isSearching && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -609,64 +621,64 @@ const CreatePlaylistPage = () => {
 
             {/* Search results */}
             {searchResults.length > 0 && (
-              <div className="bg-[#2A2A2A] rounded-lg p-4 max-h-60 overflow-y-auto">
-                {searchResults.map((song) => (
-                  <div 
-                    key={song.song_id} 
-                    className="flex justify-between items-center py-2 hover:bg-[#383838] rounded px-2 transition-colors"
-                  >
-                    <div>
-                      <div className="text-sm font-semibold">{song.song_name}</div>
-                      <div className="text-xs text-gray-400">{song.artist_name}</div>
+            <div className="bg-[#2A2A2A] rounded-lg p-4 max-h-60 overflow-y-auto">
+              {searchResults.map((song) => (
+                <div 
+                  key={song.song_id} 
+                  className="flex justify-between items-center py-2 hover:bg-[#383838] rounded px-2"
+                >
+                  <div>
+                    <div className="text-sm font-semibold">{song.song_name || 'Unknown Song'}</div>
+                    <div className="text-xs text-gray-400">
+                      {song.artist_name || 'Unknown Artist'} • {song.album_name || 'Unknown Album'}
                     </div>
-                    <button
-                      onClick={() => addSongToPlaylist(song)}
-                      className="bg-[#1ED760] text-black px-3 py-1 rounded-full text-sm hover:bg-[#1DB954] transition-colors"
-                      aria-label={`Add ${song.song_name}`}
-                    >
-                      Add
-                    </button>
                   </div>
-                ))}
-              </div>
-            )}
+                  <button
+                    onClick={() => addSongToPlaylist(song)}
+                    className="bg-[#1ED760] text-black px-3 py-1 rounded-full text-sm hover:bg-[#1DB954]"
+                  >
+                    Add
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           </div>
 
           {/* Selected songs list */}
-          <div className="mb-4">
-            <h3 className="text-lg font-bold mb-4">Playlist Songs</h3>
-            {selectedSongs.length === 0 ? (
-              <p className="text-[#EBE7CD] opacity-75 text-center py-4">
-                No songs added yet. Search for songs to add to your playlist.
-              </p>
-            ) : (
-              <>
-                <div className="grid grid-cols-4 text-sm font-bold text-[#EBE7CD] opacity-75 mb-2">
-                  <span></span>
-                  <span>Title</span>
-                  <span>Date Added</span>
-                  <span>Duration</span>
-                </div>
-                {selectedSongs.map((song) => (
-                  <div 
-                  key={song.song_id} 
-                  className="grid grid-cols-4 text-sm py-2 hover:bg-[#2A2A2A] rounded items-center transition-colors"
-                >
-                  <button 
-                    onClick={() => removeSongFromPlaylist(song)}
-                    className="text-red-500 hover:text-red-400 transition-colors"
-                    aria-label={`Remove ${song.song_name}`}
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                  <span>{song.song_name} - {song.artist_name}</span>
-                  <span>{formatDateAdded(song.dateAdded)}</span>
-                  <span>{formatDuration(song.duration)}</span>
-                </div>
-                ))}
-              </>
-            )}
-          </div>
+<div className="mb-4">
+  <h3 className="text-lg font-bold mb-4">Playlist Songs</h3>
+  {selectedSongs.length === 0 ? (
+    <p className="text-[#EBE7CD] opacity-75 text-center py-4">
+      No songs added yet. Search for songs to add to your playlist.
+    </p>
+  ) : (
+    <>
+      <div className="grid grid-cols-4 text-sm font-bold text-[#EBE7CD] opacity-75 mb-2">
+        <span></span>
+        <span>Title</span>
+        <span>Date Added</span>
+        <span>Duration</span>
+      </div>
+      {selectedSongs.map((song) => (
+        <div 
+          key={song.song_id} 
+          className="grid grid-cols-4 text-sm py-2 hover:bg-[#2A2A2A] rounded items-center"
+        >
+          <button 
+            onClick={() => removeSongFromPlaylist(song)}
+            className="text-red-500 hover:text-red-400"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <span>{song.song_name} - {song.artist_name}</span>
+          <span>{formatDateAdded(song.dateAdded)}</span>
+          <span>{formatDuration(song.duration)}</span>
+        </div>
+      ))}
+    </>
+  )}
+</div>
 
           {/* Create playlist button */}
           <button

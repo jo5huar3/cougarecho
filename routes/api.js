@@ -345,14 +345,21 @@ router.get('/users', async (req, res) => {
 
 //search for songs and artist name
 router.get('/songs/search', async (req, res) => {
-  const { keyword = '' } = req.query;
-
   try {
-    const pool = await sql.connect('your-database-connection-string');
-    const request = pool.request();
-    request.input('keyword', sql.NVarChar, `%${keyword}%`); // Use wildcards to match the keyword
+    // Get and validate the keyword
+    const keyword = req.query.keyword?.toString() || '';
+    
+    // Log for debugging
+    console.log('Search request received:', { keyword });
 
-    const myQuery = `
+    if (keyword.length < 2) {
+      return res.json([]); // Return empty array for short queries
+    }
+
+    const request = new sql.Request();
+    request.input('keyword', sql.NVarChar, `%${keyword}%`);
+
+    const result = await request.query(`
       SELECT 
           s.song_id, 
           s.song_name, 
@@ -361,23 +368,26 @@ router.get('/songs/search', async (req, res) => {
           s.created_at, 
           s.isAvailable, 
           a.album_name, 
-          u.display_name AS artist_name, 
-          g.genre_name 
+          u.display_name AS artist_name
       FROM [dbo].[Song] s
       JOIN [dbo].[Artist] ar ON s.artist_id = ar.artist_id
       JOIN [dbo].[User] u ON ar.user_id = u.user_id
       JOIN [dbo].[Album] a ON s.album_id = a.album_id
-      LEFT JOIN [dbo].[Genre] g ON s.genre_id = g.genre_id
       WHERE s.song_name LIKE @keyword 
-         OR u.display_name LIKE @keyword 
-         OR u.first_name + ' ' + u.last_name LIKE @keyword`;
+         OR u.display_name LIKE @keyword
+      ORDER BY s.song_name ASC
+      LIMIT 10`); // Limit results for better performance
 
-    const result = await request.query(myQuery);
-    res.status(200).json(result.recordset);
+    // Log the results for debugging
+    console.log(`Found ${result.recordset.length} results`);
 
+    return res.status(200).json(result.recordset);
   } catch (error) {
-    console.error('Error fetching songs or artists:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Search error:', error);
+    return res.status(500).json({ 
+      error: 'Error searching songs',
+      details: error.message 
+    });
   }
 });
 
