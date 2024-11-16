@@ -7,12 +7,17 @@ import path from 'path'
 import fs from 'fs';
 import { fileURLToPath } from "url";
 import multer from "multer";
+import cors from 'cors';
 dotenv.config();
 
 const router = express.Router();
 const SECRET_KEY = process.env.ACCESS_TOKEN_SECRET;
 const userRoles = { "Listener": 1, "Artist": 2, "Admin": 3 }
 
+router.use(cors({
+  origin: 'http://localhost:5173', // Your React app URL
+  credentials: true
+}));
 
 router.get("/data", async (req, res) => {
   try {
@@ -339,7 +344,6 @@ router.get('/users', async (req, res) => {
 });
 
 //search for songs and artist name
-
 router.get('/songs/search', async (req, res) => {
   const { keyword = '' } = req.query;
 
@@ -443,8 +447,6 @@ router.post("/playlist/:playlist_id/song", async (req, res) => {
     } else {
       res.status(500).json({ error: "Failed to add song to playlist" });
     }
-      
-
 
   }catch(err){
     console.error("Error adding song to playlist:", err);
@@ -452,11 +454,73 @@ router.post("/playlist/:playlist_id/song", async (req, res) => {
   }
 });
 //End: Add Song to Playlist
+
 // Start: Delete song from playlist
-router.delete("/playlist/:playlist_id/song/:song_id", async (req, res) => {});
+router.delete('/playlist/:playlist_id/song/:song_id', async (req, res) => {
+  try {
+    const { playlist_id, song_id } = req.params;
+
+    if (!playlist_id || !song_id) {
+      return res.status(400).json({ message: 'Playlist ID and Song ID are required' });
+    }
+
+    const request = new sql.Request();
+    request.input('playlist_id', sql.Int, playlist_id);
+    request.input('song_id', sql.Int, song_id);
+
+    const result = await request.query(`
+      DELETE FROM [PlaylistSongs]
+      WHERE playlist_id = @playlist_id AND song_id = @song_id
+    `);
+
+    if (result.rowsAffected[0] === 1) {
+      res.status(200).json({ message: 'Song deleted from playlist successfully' });
+    } else {
+      res.status(404).json({ message: 'Song not found in playlist' });
+    }
+  } catch (err) {
+    console.error('Error deleting song from playlist:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//End: Delete song from playlist
 
 // Delete playlist
-router.delete("/playlist/:playlist_id", async (req, res) => {});
+router.delete('/playlist/:playlist_id', async (req, res) => {
+  try {
+    const { playlist_id } = req.params;
+
+    if (!playlist_id) {
+      return res.status(400).json({ message: 'Playlist ID is required' });
+    }
+
+    const request = new sql.Request();
+    request.input('playlist_id', sql.Int, playlist_id);
+
+    // First, delete all related songs in PlaylistSongs (optional, if required)
+    await request.query(`
+      DELETE FROM [PlaylistSongs]
+      WHERE playlist_id = @playlist_id
+    `);
+
+    // Then, delete the playlist itself
+    const result = await request.query(`
+      DELETE FROM [Playlist]
+      WHERE playlist_id = @playlist_id
+    `);
+
+    if (result.rowsAffected[0] === 1) {
+      res.status(200).json({ message: 'Playlist deleted successfully' });
+    } else {
+      res.status(404).json({ message: 'Playlist not found' });
+    }
+  } catch (err) {
+    console.error('Error deleting playlist:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//End: delete playlist
+
 //Will Nguyen End
 
 
