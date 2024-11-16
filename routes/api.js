@@ -30,7 +30,7 @@ router.get("/data", async (req, res) => {
 router.get("/test", (req, res) => {
   res.json([{ "test": "hello world!" }])
 });
-// Begin Josh
+// Begin Josh Lewis
 router.get('/listener/:id', async (req, res) => {
   try {
     const user_id = req.params.id;
@@ -97,12 +97,33 @@ router.get('/artist/:id/albumlatest', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// Begin Josh Lewis
+router.get('/album/playcount/3', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const request = new sql.Request();
+    //request.input('user_id', sql.Int, id)
+    const myQuery = 'SELECT TOP 3 A.album_id, A.album_name, ART.artist_name, \
+     A.album_cover, AP.playCount, AP.lastPlayed \
+    FROM [Album] A, [Artist] ART, [AlbumPlays] AP \
+    where A.artist_id = ART.artist_id and A.album_id = AP.album_id ORDER BY AP.playCount DESC;;';
+    request.query(myQuery, async (err, result) => {
+      if (result?.recordset?.length > 0) {
+        console.log([result?.recordset?.[0], result?.recordset?.[1], result?.recordset?.[2]])
+        res.json([result.recordset[0], result.recordset[1], result.recordset[2]]);
+      } else {
+        res.json([result?.recordset?.[0], result?.recordset?.[1], result?.recordset?.[2]]);
+      }
+    })
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Create 'uploads' directory if it doesn't exist
-const uploadDir = path.join(__dirname, 'uploads');
+const uploadDir = path.join('/tmp/uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }

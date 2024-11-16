@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Search, Home, Settings, Menu, PlusCircle, User, Disc, X, Music, LogOut } from 'lucide-react';
-
-const API_URL = 'http://localhost:8080/api';
+import { BASE_URL2 } from '../../api/axios';
+const API_URL = BASE_URL2;
 
 interface Artist {
   artist_id: string;
@@ -31,7 +31,7 @@ const Homepage: React.FC = () => {
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
-  
+
       try {
         // Get artists
         const artistsResponse = await fetch(`${API_URL}/artists`);
@@ -44,7 +44,7 @@ const Homepage: React.FC = () => {
           console.log('Top 3 Artists:', artistList);
           setArtists(artistList);
         }
-  
+
         // Get albums
         const albumsResponse = await fetch(`${API_URL}/albums`);
         if (albumsResponse.ok) {
@@ -58,16 +58,16 @@ const Homepage: React.FC = () => {
           console.log('Top 3 Albums:', albumList);
           setAlbums(albumList);
         }
-  
+
         // Get user type from token
         const token = localStorage.getItem('userToken');
         if (token) {
           try {
             const payload = JSON.parse(atob(token.split('.')[1]));
-            const userType = payload.role_id === 1 ? 'listener' 
-                          : payload.role_id === 2 ? 'artist'
-                          : payload.role_id === 3 ? 'admin'
-                          : 'listener';
+            const userType = payload.role_id === 1 ? 'listener'
+              : payload.role_id === 2 ? 'artist'
+                : payload.role_id === 3 ? 'admin'
+                  : 'listener';
             setAccountType(userType);
           } catch (tokenError) {
             console.error('Error parsing token:', tokenError);
@@ -81,7 +81,7 @@ const Homepage: React.FC = () => {
         setIsLoading(false);
       }
     };
-  
+
     fetchData();
   }, []);
 
@@ -99,12 +99,12 @@ const Homepage: React.FC = () => {
   const handleLogout = () => {
     localStorage.removeItem('userToken');
     sessionStorage.clear();
-    
-    navigate('/#', { 
-      state: { 
+
+    navigate('/#', {
+      state: {
         showLogoutMessage: true,
-        message: "You've been logged out successfully" 
-      } 
+        message: "You've been logged out successfully"
+      }
     });
   };
 
@@ -179,7 +179,7 @@ const Homepage: React.FC = () => {
               <Link to={getProfilePath()} className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center mt-4">
                 <User className="w-5 h-5 mr-3" /> Profile ({accountType})
               </Link>
-              <button 
+              <button
                 onClick={handleLogout}
                 className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center mt-4 w-full"
               >

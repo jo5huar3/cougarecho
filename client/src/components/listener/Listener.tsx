@@ -5,10 +5,10 @@ import { UserContext } from '../../context/UserContext';
 import axios from '../../api/axios';
 
 interface Album {
-  id: number;
-  title: string;
-  artist: string;
-  imageUrl: string;
+  album_id: number;
+  album_name: string;
+  artist_name: string;
+  album_cover: string;
   playCount: number;
   lastPlayed: string;
 }
@@ -29,26 +29,26 @@ const mockApi = {
   fetchTopAlbums: () => new Promise<Album[]>(resolve =>
     setTimeout(() => resolve([
       {
-        id: 1,
-        title: 'Hit me hard and soft',
-        artist: 'Billie Eilish',
-        imageUrl: '/api/placeholder/400/400',
+        album_id: 1,
+        album_name: 'Hit me hard and soft',
+        artist_name: 'Billie Eilish',
+        album_cover: '/api/placeholder/400/400',
         playCount: 1205,
         lastPlayed: '2024-05-01T14:48:00.000Z'
       },
       {
-        id: 2,
-        title: 'Midnights',
-        artist: 'Taylor Swift',
-        imageUrl: '/api/placeholder/400/400',
+        album_id: 2,
+        album_name: 'Midnights',
+        artist_name: 'Taylor Swift',
+        album_cover: '/api/placeholder/400/400',
         playCount: 986,
         lastPlayed: '2024-04-28T09:32:00.000Z'
       },
       {
-        id: 3,
-        title: 'Dawn FM',
-        artist: 'The Weeknd',
-        imageUrl: '/api/placeholder/400/400',
+        album_id: 3,
+        album_name: 'Dawn FM',
+        artist_name: 'The Weeknd',
+        album_cover: '/api/placeholder/400/400',
         playCount: 754,
         lastPlayed: '2024-04-25T22:15:00.000Z'
       }
@@ -69,17 +69,16 @@ const Listener = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
       try {
         const response = await axios.get('/listener/' + user.user_id);
         const profileData = { name: response?.data?.display_name, playlists: response?.data?.playlists }
         console.log(profileData)
-        const [albumsData] = await Promise.all([
-          mockApi.fetchTopAlbums()
-        ]);
         setUserProfile(profileData);
-        setTopAlbums(albumsData);
+
+        const response2 = await axios.get('/album/playcount/3');
+        const [albumsData] = [response2?.data[0], response2?.data[1], response2?.data[2]]
+        //console.log(response2?.data)
+        setTopAlbums(response2?.data);
       } catch (err) {
         setError('Failed to fetch data. Please try again later.');
         console.error('Error fetching data:', err);
@@ -233,22 +232,22 @@ const Listener = () => {
           <div className="grid grid-cols-3 gap-4">
             {topAlbums.map((album) => (
               <div
-                key={album.id}
+                key={album.album_id}
                 className="bg-[#2A2A2A] rounded-lg p-4 transition-all duration-300 hover:bg-[#3A3A3A] cursor-pointer group"
-                onClick={() => handleAlbumClick(album.id)}
+                onClick={() => handleAlbumClick(album.album_id)}
               >
                 <div className="relative">
                   <img
-                    src={album.imageUrl}
-                    alt={`${album.title} by ${album.artist}`}
+                    src={album.album_cover}
+                    alt={`${album.album_name} by ${album.artist_name}`}
                     className="w-full aspect-square object-cover rounded-md mb-3"
                   />
                   <button className="absolute bottom-2 right-2 w-10 h-10 bg-[#1ED760] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
                     <Play className="w-5 h-5 text-black fill-current" />
                   </button>
                 </div>
-                <h4 className="font-semibold text-[#EBE7CD] truncate">{album.title}</h4>
-                <p className="text-sm text-gray-400 truncate">{album.artist}</p>
+                <h4 className="font-semibold text-[#EBE7CD] truncate">{album.album_name}</h4>
+                <p className="text-sm text-gray-400 truncate">{album.artist_name}</p>
                 <p className="text-xs text-gray-500 mt-1">
                   {album.playCount.toLocaleString()} plays
                 </p>
