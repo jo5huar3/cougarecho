@@ -16,6 +16,7 @@ interface Album {
 interface UserProfile {
   name: string;
   playlists: number;
+  avatar: string
 }
 
 // Mock API to simulate database calls
@@ -58,7 +59,7 @@ const mockApi = {
 
 const Listener = () => {
   const { user } = useContext(UserContext)
-  const [userProfile, setUserProfile] = useState<UserProfile>({ name: '', playlists: 0 });
+  const [userProfile, setUserProfile] = useState<UserProfile>({ name: '', playlists: 0, avatar: "" });
   const [topAlbums, setTopAlbums] = useState<Album[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,42 +78,73 @@ const Listener = () => {
 
         setUserProfile({ ...userProfile, ...profileData });
 
-        const response2 = await axios.get('/album/playcount/3');
-
-        const [albumsData] = [response2?.data[0], response2?.data[1], response2?.data[2]]
-        console.log(response2.data.length)
-        console.log(response2?.data)
-        setTopAlbums([{ ...topAlbums, ...response2.data }]);
-        topAlbums.forEach(async (alb) => {
-          const response_ = await axios.get('/album/' + alb.album_id + '/IMG', {
-            responseType: 'blob'
-          });
-          const alb_BLOB = new Blob([response_?.data], { type: 'application/jpeg' })
-          const imageUrl = URL.createObjectURL(alb_BLOB);
-          setTopAlbums((prev) =>
-            prev.map((u) =>
-              u.album_id == alb.album_id ? { ...u, album_cover: imageUrl } : u // Update image only for the matching user
-            )
-          );
-        })
         //console.log(topAlbums)
 
       } catch (err) {
         setError('Failed to fetch data. Please try again later.');
         console.error('Error fetching data:', err);
       } finally {
-        setIsLoading(false);
+        //setIsLoading(false);
       }
     };
-
     fetchData();
+  }, []);
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await axios.get('/album/playcount/3');
+        console.log("Get top 3 albums response.data:\n", response.data)
+        setTopAlbums(response?.data);
+
+
+      } catch (error) {
+        console.log("ERROR: ", error)
+      } finally {
+      }
+    }
+    fetchData();
+  }, [])
+
+  /*
+  useEffect(() => {
+    setIsLoading
+    const fetchIMGs = async () => {
+      try {
+        // Fetch album data
+        const albumData = await Promise.all(
+          topAlbums.map(async (alb) => {
+            //const { data } = await axios.get(`/album/` + alb.album_id);
+            const response = await axios.get('/album/' + alb.album_id + '/IMG', {
+              responseType: 'blob',
+            });
+
+            // Convert Blob to Object URL
+            const imageBlobUrl = await URL.createObjectURL(response.data);
+
+            return { ...alb, album_cover: imageBlobUrl };
+          })
+        );
+        //console.log(albumData)
+        setTopAlbums(albumData);
+      } catch (error) {
+        console.error('Error fetching albums:', error);
+      } finally {
+        setIsLoading(false);
+      }
+      fetchIMGs();
+    }
+
+  }, [])*/
+
+  useEffect(() => {
+    setIsLoading(false)
     const searchParams = new URLSearchParams(location.search);
     const query = searchParams.get('q');
     if (query) {
       setSearchValue(query);
     }
-  }, [location]);
+  }, [location])
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -229,7 +261,11 @@ const Listener = () => {
         <div className="bg-[#1A1A1A] rounded-lg p-6 mb-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <div className="w-32 h-32 bg-gray-700 rounded-full mr-6"></div>
+              <div className="w-32 h-32 bg-gray-700 rounded-full mr-6">
+                {userProfile?.avatar && (
+                  <img src={URL.createObjectURL(avatar)} alt="Album Cover" className="w-full h-full object-cover rounded-full" />
+                )}
+              </div>
               <div>
                 <p className="text-sm text-gray-400">Profile</p>
                 <h2 className="text-4xl font-bold">{userProfile.name}</h2>
@@ -256,16 +292,16 @@ const Listener = () => {
               >
                 <div className="relative">
                   <img
-                    src={album.album_cover}
-                    alt={`${album.album_name} by ${album.artist_name}`}
+                    src={album?.album_cover}
+                    alt={`${album?.album_name} by ${album?.artist_name}`}
                     className="w-full aspect-square object-cover rounded-md mb-3"
                   />
                   <button className="absolute bottom-2 right-2 w-10 h-10 bg-[#1ED760] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
                     <Play className="w-5 h-5 text-black fill-current" />
                   </button>
                 </div>
-                <h4 className="font-semibold text-[#EBE7CD] truncate">{album.album_name}</h4>
-                <p className="text-sm text-gray-400 truncate">{album.artist_name}</p>
+                <h4 className="font-semibold text-[#EBE7CD] truncate">{album?.album_name ? album?.album_name : ""}</h4>
+                <p className="text-sm text-gray-400 truncate">{album.artist_name ? album.artist_name : ""}</p>
                 <p className="text-xs text-gray-500 mt-1">
                   {album.playCount ? album.playCount : 0} plays
                 </p>
