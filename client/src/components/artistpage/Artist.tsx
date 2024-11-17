@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Search, Home, Settings, Menu, PlusCircle, User, Play, Edit2, Loader, X, Music, LogOut } from 'lucide-react';
 import { UserContext } from '../../context/UserContext';
 import axios from '../../api/axios';
+import Photo from '../photo/Photo'; // Adjust path as needed
 
 // Mock API
 const mockApi = {
@@ -187,7 +188,7 @@ const Artist = () => {
           {/* Profile section */}
           <div className="mb-8 flex items-center justify-between">
             <div className="flex items-center">
-              <div className="w-32 h-32 bg-gray-700 rounded-full mr-6"></div>
+              <Photo/>
               <div>
                 <p className="text-sm text-gray-400">Artist Profile</p>
                 <h2 className="text-4xl font-bold mb-2">{artistProfile.display_name}</h2>

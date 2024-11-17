@@ -14,11 +14,13 @@ const SECRET_KEY = process.env.ACCESS_TOKEN_SECRET;
 const userRoles = { "Listener": 1, "Artist": 2, "Admin": 3 }
 
 
+
 router.get("/data", async (req, res) => {
   try {
     const myQuery = "SELECT * FROM UserRole";
     const request = new sql.Request();
     request.query(myQuery, async (err, result) => {
+
       res.json(result.recordset);
     })
 
@@ -30,6 +32,7 @@ router.get("/data", async (req, res) => {
 router.get("/test", (req, res) => {
   res.json([{ "test": "hello world!" }])
 });
+
 // Begin Josh Lewis
 router.get('/listener/:id', async (req, res) => {
   try {
@@ -178,9 +181,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Create 'uploads' directory if it doesn't exist
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
+const uploadDir = path.join(process.cwd(), 'uploads');
+try {
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+} catch (err) {
+  console.error('Error creating upload directory:', err);
+  // Handle the error appropriately
 }
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -198,20 +206,89 @@ const album_upload = upload.fields([
   { name: 'song', maxCount: 20 },
   { name: 'img', maxCount: 1 }
 ])
-// Song upload endpoint
-router.post("/song-insert", upload.single('song'), async function (req, res) {
-  try {
-    const user_id = req?.body?.user_id;
-    const file = req?.file;
-    const album_id = req?.body?.album_id;
-    const song_name = 'NO-NAME';
-    const isAvailable = true;
+// Begin /album-upload
+router.post("/song-insert", upload.single('song'), async function (req, res, next) {
+  console.log(req?.body)
+  const user_id = req?.body?.user_id
+  const file = req?.file;
+  const album_id = req?.body?.album_id
+  const song_name = req.body.song_name || 'Untitled'; // Add this line to get song name
+  const isAvailable = true;
 
-    console.log("user_id:", user_id, ", file:", file);
-    if (!file || !user_id || !album_id) {
-      return res.status(400).json({ error: "File upload failed. Necessary fields not received." });
+  
+  console.log("user_id: ", user_id, ", file", file, ", song_name: ", song_name)
+  
+
+  if (!file || !user_id || !album_id) {
+    return res.status(400).json({ error: "File upload failed. Necessary fields not received." });
+  }
+
+  try {
+    const request1 = new sql.Request();
+    request1.input('song_name', sql.VarChar, song_name); // Use the provided song name
+    request1.input('user_id', sql.Int, user_id);
+    request1.input('album_id', sql.Int, album_id);
+    request1.input('isAvailable', sql.Bit, isAvailable);
+
+    console.log("Starting query1....")
+    const result1 = await request1.query(
+      'DECLARE @InsertedSongs TABLE (id INT); \
+      INSERT INTO [Song] (song_name, album_id, artist_id, created_at, isAvailable) \
+      OUTPUT inserted.song_id INTO @InsertedSongs \
+      VALUES( @song_name, @album_id, (SELECT A.artist_id FROM [Artist] A WHERE A.user_id = @user_id), GETDATE(), @isAvailable); \
+      SELECT * FROM @InsertedSongs;');
+
+    console.log("Finished query1")
+    console.log(result1?.recordset?.[0].id)
+    const song_id = result1?.recordset?.[0].id
+    if (!song_id) {
+      return res.status(500).json({ message: "Error inserting song record" });
     }
 
+    const filePath = file.path;
+    const fileBuffer = fs.readFileSync(filePath);
+
+    const request2 = new sql.Request();
+    request2.input('song_id', sql.Int, song_id);
+    request2.input('file_name', sql.VarChar, file.originalname);
+    request2.input('song_file', sql.VarBinary(sql.MAX), fileBuffer)
+    request2.query(`INSERT INTO [SongFile] (song_id, song_file, file_name)
+              VALUES (@song_id, @song_file, @file_name)`);
+
+    fs.unlinkSync(filePath);
+    console.log("Song inserted successfully with name:", song_name)
+    return res.status(200).json({ message: "Success", song_id, song_name })
+  } catch (err) {
+    console.log("ERROR: ", err.message)
+    return res.status(500).json({ message: err.message })
+  }
+  //const transaction = new sql.Transaction()
+  //transaction.begin(err => {
+
+
+  try {
+    const request1 = new sql.Request();
+    request1.input('song_name', sql.VarChar, song_name);
+    request1.input('user_id', sql.Int, user_id);
+    request1.input('album_id', sql.Int, album_id);
+    request1.input('isAvailable', sql.Bit, isAvailable);
+    //request1.input('OutputTable', sql.Table, "isAvailable");
+
+    console.log("Starting query1....")
+    const result1 = await request1.query(
+      'DECLARE @InsertedSongs TABLE (id INT); \
+      INSERT INTO [Song] (song_name, album_id, artist_id, created_at, isAvailable) \
+      OUTPUT inserted.song_id INTO @InsertedSongs \
+      VALUES( @song_name, @album_id, (SELECT A.artist_id FROM [Artist] A WHERE A.user_id = @user_id), GETDATE(), @isAvailable); \
+      SELECT * FROM @InsertedSongs;');
+    console.log("Finished query1")
+    console.log(result1?.rowsAffected[0], !result1?.[0]?.song_id)
+    console.log(result1?.recordset?.[0].id)
+    const song_id = result1?.recordset?.[0].id
+    if (!song_id) {
+      return res.status(500).json({ message: "Line 154 Error" });
+    }
+    console.log("Finished query1")
     const filePath = file.path;
     const fileBuffer = fs.readFileSync(filePath);
     const request = new sql.Request();
@@ -430,7 +507,7 @@ router.get('/register/:username', async (req, res) => {
 // End /register get method:
 
 // Begin /register
-router.post('/register', async (req, res) => {
+router.post("/register", async (req, res) => {
   try {
     const { username, password, role_id, country, bio } = req.body;
 
@@ -491,15 +568,15 @@ router.post('/register', async (req, res) => {
           role_id: result.recordset[0].role_id,
         },
         SECRET_KEY,
-        { expiresIn: '1h' }
+        { expiresIn: "1h" }
       );
 
       res.json({ token });
     } else {
-      res.status(500).json({ error: "Database server did not return anything." });
+      res.json({ error: "Database server did not return anything." });
     }
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.json({ error: error.message });
   }
 });
 
@@ -524,16 +601,22 @@ router.get('/users', async (req, res) => {
 });
 
 //search for songs and artist name
-
 router.get('/songs/search', async (req, res) => {
-  const { keyword = '' } = req.query;
-
   try {
-    const pool = await sql.connect('your-database-connection-string');
-    const request = pool.request();
-    request.input('keyword', sql.NVarChar, `%${keyword}%`); // Use wildcards to match the keyword
+    // Get and validate the keyword
+    const keyword = req.query.keyword?.toString() || '';
 
-    const myQuery = `
+    // Log for debugging
+    console.log('Search request received:', { keyword });
+
+    if (keyword.length < 2) {
+      return res.json([]); // Return empty array for short queries
+    }
+
+    const request = new sql.Request();
+    request.input('keyword', sql.NVarChar, `%${keyword}%`);
+
+    const result = await request.query(`
       SELECT 
           s.song_id, 
           s.song_name, 
@@ -542,25 +625,29 @@ router.get('/songs/search', async (req, res) => {
           s.created_at, 
           s.isAvailable, 
           a.album_name, 
-          u.display_name AS artist_name, 
-          g.genre_name 
+          u.display_name AS artist_name
       FROM [dbo].[Song] s
       JOIN [dbo].[Artist] ar ON s.artist_id = ar.artist_id
       JOIN [dbo].[User] u ON ar.user_id = u.user_id
       JOIN [dbo].[Album] a ON s.album_id = a.album_id
-      LEFT JOIN [dbo].[Genre] g ON s.genre_id = g.genre_id
       WHERE s.song_name LIKE @keyword 
-         OR u.display_name LIKE @keyword 
-         OR u.first_name + ' ' + u.last_name LIKE @keyword`;
+         OR u.display_name LIKE @keyword
+      ORDER BY s.song_name ASC
+      `); // Limit results for better performance
 
-    const result = await request.query(myQuery);
-    res.status(200).json(result.recordset);
+    // Log the results for debugging
+    console.log(`Found ${result.recordset.length} results`);
 
+    return res.status(200).json(result.recordset);
   } catch (error) {
-    console.error('Error fetching songs or artists:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Search error:', error);
+    return res.status(500).json({
+      error: 'Error searching songs',
+      details: error.message
+    });
   }
 });
+
 router.get('/user-rating', async (req, res) => {
   try {
     const pool = await sql.connect('your-database-connection-string');
@@ -629,126 +716,264 @@ router.get('/song-rating', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+//End Thinh Bui
 
-router.get('/artist-rating', async (req, res) => {
+//Will Nguyen Begin
+
+//Start: Create New Playlist
+router.post("/playlist/new", async (req, res) => {
   try {
-    const pool = await sql.connect('your-database-connection-string');
-    const results = await pool.request().query(`
-      WITH ArtistSongCounts AS (
-          SELECT 
-              s.artist_id,
-              COUNT(s.song_id) AS total_songs
-          FROM 
-              Song s
-          GROUP BY 
-              s.artist_id
-      ),
-      ArtistAlbumCounts AS (
-          SELECT 
-              a.artist_id,
-              COUNT(DISTINCT alb.album_id) AS total_albums
-          FROM 
-              Album alb
-          JOIN 
-              Artist a ON alb.artist_id = a.artist_id
-          GROUP BY 
-              a.artist_id
-      ),
-      ArtistLikeCounts AS (
-          SELECT 
-              s.artist_id,
-              COUNT(l.song_id) AS total_likes
-          FROM 
-              Likes l
-          JOIN 
-              Song s ON l.song_id = s.song_id
-          GROUP BY 
-              s.artist_id
-      )
-      
-      SELECT 
-          a.artist_id,
-          a.artist_name,
-          COALESCE(ascnt.total_songs, 0) AS total_songs,
-          COALESCE(aac.total_albums, 0) AS total_albums,
-          COALESCE(alc.total_likes, 0) AS total_likes
-      FROM 
-          Artist a
-      LEFT JOIN 
-          ArtistSongCounts ascnt ON a.artist_id = ascnt.artist_id
-      LEFT JOIN 
-          ArtistAlbumCounts aac ON a.artist_id = aac.artist_id
-      LEFT JOIN 
-          ArtistLikeCounts alc ON a.artist_id = alc.artist_id
-      ORDER BY 
-          total_likes DESC;
+    const { title, userId, avatar } = req.body;
+
+    if (!title || !userId) {
+      return res
+        .status(400)
+        .json({ message: "Playlist title and user ID are required." });
+    }
+
+    const request = new sql.Request();
+    request.input("title", sql.VarChar(50), title);
+    request.input("userId", sql.Int, userId);
+    request.input("avatar", sql.VarChar(255), avatar || null); // avatar can be null
+
+    const result = await request.query(`
+      INSERT INTO [Playlist] (title, user_id, created_at, updated_at, avatar)
+      OUTPUT inserted.playlist_id
+      VALUES (@title, @userId, GETDATE(), GETDATE(), @avatar)
     `);
-    res.status(200).json(results.recordset);
-  } catch (error) {
-    console.error('Error fetching artist summary report:', error);
+
+    const playlistId = result.recordset[0].playlist_id;
+    res
+      .status(200)
+      .json({ message: "Playlist created successfully", playlistId });
+  } catch (err) {
+    console.error("Error creating playlist:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+//End: Create New Playlist
+
+//Start: Add song to playlist
+router.post("/playlist/:playlist_id/song", async (req, res) => {
+  try {
+    //Code to handle request goes here
+    const { playlist_id } = req.params;
+    const { song_id, active } = req.body;
+
+    if (!playlist_id || !song_id) {
+      return res.status(400).json({ message: "Playlist ID and song are required." });
+    }
+
+    const request = new sql.Request();
+
+    request.input("playlist_id", sql.Int, playlist_id);
+    request.input("song_id", sql.Int, song_id);
+    request.input("created_at", sql.DateTime, new Date());
+    request.input("updated_at", sql.DateTime, new Date());
+    request.input("active", sql.Bit, active !== undefined ? active : 1); // Default to active if not provided
+
+    const result = await request.query(`
+      INSERT INTO [PlaylistSongs] (playlist_id, song_id, created_at, updated_at, active)
+      VALUES (@playlist_id, @song_id, @created_at, @updated_at, @active)
+      `);
+
+    if (result.rowsAffected[0] === 1) {
+      res.status(200).json({ message: "Song added to playlist successfully" });
+    } else {
+      res.status(500).json({ error: "Failed to add song to playlist" });
+    }
+
+  } catch (err) {
+    console.error("Error adding song to playlist:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+//End: Add Song to Playlist
+
+// Start: Delete song from playlist
+router.delete('/playlist/:playlist_id/song/:song_id', async (req, res) => {
+  try {
+    const { playlist_id, song_id } = req.params;
+
+    if (!playlist_id || !song_id) {
+      return res.status(400).json({ message: 'Playlist ID and Song ID are required' });
+    }
+
+    const request = new sql.Request();
+    request.input('playlist_id', sql.Int, playlist_id);
+    request.input('song_id', sql.Int, song_id);
+
+    const result = await request.query(`
+      DELETE FROM [PlaylistSongs]
+      WHERE playlist_id = @playlist_id AND song_id = @song_id
+    `);
+
+    if (result.rowsAffected[0] === 1) {
+      res.status(200).json({ message: 'Song deleted from playlist successfully' });
+    } else {
+      res.status(404).json({ message: 'Song not found in playlist' });
+    }
+  } catch (err) {
+    console.error('Error deleting song from playlist:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+//End: Delete song from playlist
 
-// Begin /create-admin
-router.post('/create-admin', async (req, res) => {
+// Delete playlist
+router.delete('/playlist/:playlist_id', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { playlist_id } = req.params;
 
-    // Validate inputs
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required.' });
+    if (!playlist_id) {
+      return res.status(400).json({ message: 'Playlist ID is required' });
     }
 
-    // Hash the password using bcrypt
-    const password_hash = await bcrypt.hash(password, 4);
-    
-    // Define SQL query to insert new admin user into the database
-    const myQuery = `
-          INSERT INTO [User] (username, password_hash, created_at, role_id)
-          OUTPUT inserted.user_id, inserted.username, inserted.role_id
-          VALUES (@username, @password_hash, GETDATE(), @role_id)`;
-    
-    // Create SQL request
     const request = new sql.Request();
-    request.input('username', sql.NVarChar, username);
-    request.input('password_hash', sql.NVarChar, password_hash);
-    request.input('role_id', sql.Int, 3); // Role ID 3 for admin
+    request.input('playlist_id', sql.Int, playlist_id);
 
-    // Execute the query
-    const result = await request.query(myQuery);
-    
-    if (result?.rowsAffected[0] === 1) {
-      // Generate a JWT token for the newly created admin user
-      const token = jwt.sign(
-        {
-          user_id: result.recordset[0].user_id,
-          username: result.recordset[0].username,
-          role_id: result.recordset[0].role_id,
-        },
-        SECRET_KEY,
-        { expiresIn: '1h' }
-      );
+    // First, delete all related songs in PlaylistSongs (optional, if required)
+    await request.query(`
+      DELETE FROM [PlaylistSongs]
+      WHERE playlist_id = @playlist_id
+    `);
 
-      // Respond with the JWT token
-      res.json({ token });
+    // Then, delete the playlist itself
+    const result = await request.query(`
+      DELETE FROM [Playlist]
+      WHERE playlist_id = @playlist_id
+    `);
+
+    if (result.rowsAffected[0] === 1) {
+      res.status(200).json({ message: 'Playlist deleted successfully' });
     } else {
-      res.status(500).json({ error: "Failed to create admin account. Database did not return expected output." });
+      res.status(404).json({ message: 'Playlist not found' });
     }
-  } catch (error) {
-    // Handle errors and send response with error message
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    console.error('Error deleting playlist:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
-// End /create-admin
+//End: delete playlist
 
+//Start: get playlist
 
-//End Thinh Bui
+router.get('/playlist/:playlist_id', async (req, res) => {
+  try {
+    const { playlist_id } = req.params;
+    const request = new sql.Request();
+    request.input('playlist_id', sql.Int, playlist_id);
+
+    // First get playlist details
+    const playlist = await request.query(`
+      SELECT p.*, u.username as creator_name 
+      FROM [Playlist] p
+      JOIN [User] u ON p.user_id = u.user_id
+      WHERE p.playlist_id = @playlist_id
+    `);
+
+    // Then get playlist songs
+    const songs = await request.query(`
+      SELECT s.*, ps.created_at as added_at
+      FROM [Song] s
+      JOIN [PlaylistSongs] ps ON s.song_id = ps.song_id
+      WHERE ps.playlist_id = @playlist_id AND ps.active = 1
+      ORDER BY ps.created_at DESC
+    `);
+
+    res.json({
+      ...playlist.recordset[0],
+      songs: songs.recordset
+    });
+  } catch (err) {
+    console.error('Error fetching playlist:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//End: get playlist
+
+//Start: update playlist name
+router.put('/playlist/:playlist_id', async (req, res) => {
+  try {
+    const { playlist_id } = req.params;
+    const { title } = req.body;
+
+    const request = new sql.Request();
+    request.input('playlist_id', sql.Int, playlist_id);
+    request.input('title', sql.VarChar, title);
+
+    await request.query(`
+      UPDATE [Playlist]
+      SET title = @title, updated_at = GETDATE()
+      WHERE playlist_id = @playlist_id
+    `);
+
+    res.json({ message: 'Playlist updated successfully' });
+  } catch (err) {
+    console.error('Error updating playlist:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//End: update playlist name
+router.put('/playlist/:playlist_id', async (req, res) => {
+  try {
+    const { playlist_id } = req.params;
+    const { title } = req.body;
+
+    const request = new sql.Request();
+    request.input('playlist_id', sql.Int, playlist_id);
+    request.input('title', sql.VarChar, title);
+
+    await request.query(`
+      UPDATE [Playlist]
+      SET title = @title, updated_at = GETDATE()
+      WHERE playlist_id = @playlist_id
+    `);
+
+    res.json({ message: 'Playlist updated successfully' });
+  } catch (err) {
+    console.error('Error updating playlist:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//Start: get user playlists
+// Get user's playlists
+router.get('/playlists/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const request = new sql.Request();
+    request.input('userId', sql.Int, userId);
+
+    const result = await request.query(`
+      SELECT 
+        p.playlist_id,
+        p.title,
+        p.avatar,
+        p.created_at,
+        p.updated_at,
+        p.user_id
+      FROM [Playlist] p
+      WHERE p.user_id = @userId
+      ORDER BY p.created_at DESC
+    `);
+
+    console.log('Found playlists:', result.recordset); // Fixed logging statement
+    res.json(result.recordset);
+  } catch (err) {
+    console.error('Error fetching user playlists:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//End: get user playlists
+
+//Will Nguyen End
 
 //Homepage: Yeni
 // In your api.js file, update the routes
 // Get top 3 artists
 router.get("/artists", async (req, res) => {
+
   try {
     const request = new sql.Request();
     const query = `
@@ -771,6 +996,420 @@ router.get("/artists", async (req, res) => {
   } catch (err) {
     console.error('Route error:', err);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get top 3 albums
+router.get("/albums", async (req, res) => {
+  try {
+    const request = new sql.Request();
+    const query = `
+      SELECT TOP 6
+        a.album_id,
+        a.album_name,
+        a.artist_id,
+        art.artist_name,
+        a.album_cover
+      FROM [Album] a
+      INNER JOIN [Artist] art ON a.artist_id = art.artist_id
+      WHERE a.album_name IS NOT NULL
+      ORDER BY a.create_at DESC
+    `;
+
+    request.query(query, (err, result) => {
+      if (err) {
+        console.error('Database query error:', err);
+        return res.status(500).json({ error: err.message });
+      }
+      res.json(result.recordset || []);
+    });
+  } catch (err) {
+    console.error('Route error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//End Homepage: Yeni
+
+
+
+//edit start Yeni
+
+// Get user profile with display name and username
+router.get('/user/profile/:user_id', async (req, res) => {
+  try {
+    const user_id = req.params.user_id;
+    const request = new sql.Request();
+    request.input('user_id', sql.Int, user_id);
+    
+    const myQuery = `
+      SELECT U.user_id, U.username, U.display_name, U.role_id,
+        (SELECT COUNT(*) FROM [Playlist] WHERE user_id = U.user_id) as playlist_count
+      FROM [User] U 
+      WHERE U.user_id = @user_id`;
+
+    request.query(myQuery, (err, result) => {
+      if (err || !result?.recordset?.[0]) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      res.json(result.recordset[0]);
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update display name
+router.put('/user/displayname', async (req, res) => {
+  try {
+    const { user_id, display_name } = req.body;
+    
+    if (!display_name?.trim()) {
+      return res.status(400).json({ error: 'Display name cannot be empty' });
+    }
+
+    const request = new sql.Request();
+    request.input('user_id', sql.Int, user_id);
+    request.input('display_name', sql.NVarChar, display_name);
+
+    const transaction = new sql.Transaction();
+    await transaction.begin();
+
+    try {
+      // Update display name in User table
+      await request.query(`
+        UPDATE [User] 
+        SET display_name = @display_name 
+        WHERE user_id = @user_id`);
+
+      // Update display name in related Artist records if exists
+      await request.query(`
+        UPDATE [Artist]
+        SET artist_name = @display_name
+        WHERE user_id = @user_id`);
+
+      await transaction.commit();
+      res.json({ success: true, message: 'Display name updated successfully' });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update username
+router.put('/user/username', async (req, res) => {
+  try {
+    const { user_id, old_username, new_username } = req.body;
+
+    if (!new_username?.trim()) {
+      return res.status(400).json({ error: 'Username cannot be empty' });
+    }
+
+    const request = new sql.Request();
+    request.input('user_id', sql.Int, user_id);
+    request.input('old_username', sql.NVarChar, old_username);
+    request.input('new_username', sql.NVarChar, new_username);
+
+    // Check if old username matches
+    const userCheck = await request.query(
+      'SELECT username FROM [User] WHERE user_id = @user_id'
+    );
+
+    if (!userCheck.recordset[0] || userCheck.recordset[0].username !== old_username) {
+      return res.status(400).json({ error: 'Current username is incorrect' });
+    }
+
+    // Check if new username is already taken
+    const usernameCheck = await request.query(
+      'SELECT user_id FROM [User] WHERE username = @new_username AND user_id != @user_id'
+    );
+
+    if (usernameCheck.recordset.length > 0) {
+      return res.status(400).json({ error: 'Username is already taken' });
+    }
+
+    const transaction = new sql.Transaction();
+    await transaction.begin();
+
+    try {
+      // Update username
+      await request.query(`
+        UPDATE [User]
+        SET username = @new_username
+        WHERE user_id = @user_id`);
+
+      await transaction.commit();
+      res.json({ success: true, message: 'Username updated successfully' });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete account
+router.delete('/user/delete/:user_id', async (req, res) => {
+  try {
+    const user_id = req.params.user_id;
+    const request = new sql.Request();
+    request.input('user_id', sql.Int, user_id);
+
+    const transaction = new sql.Transaction();
+    await transaction.begin();
+
+    try {
+      // Delete user's playlist songs
+      await request.query(`
+        DELETE FROM [PlaylistSong]
+        WHERE playlist_id IN (SELECT playlist_id FROM [Playlist] WHERE user_id = @user_id)`);
+
+      // Delete user's playlists
+      await request.query(`
+        DELETE FROM [Playlist]
+        WHERE user_id = @user_id`);
+
+      // Delete user's song likes
+      await request.query(`
+        DELETE FROM [Likes]
+        WHERE user_id = @user_id`);
+
+      // Delete songs if user is an artist
+      await request.query(`
+        DELETE FROM [Song]
+        WHERE artist_id IN (SELECT artist_id FROM [Artist] WHERE user_id = @user_id)`);
+
+      // Delete albums if user is an artist
+      await request.query(`
+        DELETE FROM [Album]
+        WHERE artist_id IN (SELECT artist_id FROM [Artist] WHERE user_id = @user_id)`);
+
+      // Delete artist record if exists
+      await request.query(`
+        DELETE FROM [Artist]
+        WHERE user_id = @user_id`);
+
+      // Finally delete the user
+      await request.query(`
+        DELETE FROM [User]
+        WHERE user_id = @user_id`);
+
+      await transaction.commit();
+      res.json({ success: true, message: 'Account deleted successfully' });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+//edit end
+
+        a.album_id,
+        a.album_name,
+        a.artist_id,
+        art.artist_name,
+        a.album_cover
+      FROM [Album] a
+      INNER JOIN [Artist] art ON a.artist_id = art.artist_id
+      WHERE a.album_name IS NOT NULL
+      ORDER BY a.create_at DESC
+    `;
+
+    request.query(query, (err, result) => {
+      if (err) {
+        console.error('Database query error:', err);
+        return res.status(500).json({ error: err.message });
+      }
+      res.json(result.recordset || []);
+    });
+  } catch (err) {
+    console.error('Route error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//End Homepage: Yeni
+
+
+
+//edit start Yeni
+
+// Get user profile with display name and username
+router.get('/user/profile/:user_id', async (req, res) => {
+  try {
+    const user_id = req.params.user_id;
+    const request = new sql.Request();
+    request.input('user_id', sql.Int, user_id);
+
+    const myQuery = `
+      SELECT U.user_id, U.username, U.display_name, U.role_id,
+        (SELECT COUNT(*) FROM [Playlist] WHERE user_id = U.user_id) as playlist_count
+      FROM [User] U 
+      WHERE U.user_id = @user_id`;
+
+    request.query(myQuery, (err, result) => {
+      if (err || !result?.recordset?.[0]) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      res.json(result.recordset[0]);
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update display name
+router.put('/user/displayname', async (req, res) => {
+  try {
+    const { user_id, display_name } = req.body;
+
+    if (!display_name?.trim()) {
+      return res.status(400).json({ error: 'Display name cannot be empty' });
+    }
+
+    const request = new sql.Request();
+    request.input('user_id', sql.Int, user_id);
+    request.input('display_name', sql.NVarChar, display_name);
+
+    const transaction = new sql.Transaction();
+    await transaction.begin();
+
+    try {
+      // Update display name in User table
+      await request.query(`
+        UPDATE [User] 
+        SET display_name = @display_name 
+        WHERE user_id = @user_id`);
+
+      // Update display name in related Artist records if exists
+      await request.query(`
+        UPDATE [Artist]
+        SET artist_name = @display_name
+        WHERE user_id = @user_id`);
+
+      await transaction.commit();
+      res.json({ success: true, message: 'Display name updated successfully' });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update username
+router.put('/user/username', async (req, res) => {
+  try {
+    const { user_id, old_username, new_username } = req.body;
+
+    if (!new_username?.trim()) {
+      return res.status(400).json({ error: 'Username cannot be empty' });
+    }
+
+    const request = new sql.Request();
+    request.input('user_id', sql.Int, user_id);
+    request.input('old_username', sql.NVarChar, old_username);
+    request.input('new_username', sql.NVarChar, new_username);
+
+    // Check if old username matches
+    const userCheck = await request.query(
+      'SELECT username FROM [User] WHERE user_id = @user_id'
+    );
+
+    if (!userCheck.recordset[0] || userCheck.recordset[0].username !== old_username) {
+      return res.status(400).json({ error: 'Current username is incorrect' });
+    }
+
+    // Check if new username is already taken
+    const usernameCheck = await request.query(
+      'SELECT user_id FROM [User] WHERE username = @new_username AND user_id != @user_id'
+    );
+
+    if (usernameCheck.recordset.length > 0) {
+      return res.status(400).json({ error: 'Username is already taken' });
+    }
+
+    const transaction = new sql.Transaction();
+    await transaction.begin();
+
+    try {
+      // Update username
+      await request.query(`
+        UPDATE [User]
+        SET username = @new_username
+        WHERE user_id = @user_id`);
+
+      await transaction.commit();
+      res.json({ success: true, message: 'Username updated successfully' });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete account
+router.delete('/user/delete/:user_id', async (req, res) => {
+  try {
+    const user_id = req.params.user_id;
+    const request = new sql.Request();
+    request.input('user_id', sql.Int, user_id);
+
+    const transaction = new sql.Transaction();
+    await transaction.begin();
+
+    try {
+      // Delete user's playlist songs
+      await request.query(`
+        DELETE FROM [PlaylistSong]
+        WHERE playlist_id IN (SELECT playlist_id FROM [Playlist] WHERE user_id = @user_id)`);
+
+      // Delete user's playlists
+      await request.query(`
+        DELETE FROM [Playlist]
+        WHERE user_id = @user_id`);
+
+      // Delete user's song likes
+      await request.query(`
+        DELETE FROM [Likes]
+        WHERE user_id = @user_id`);
+
+      // Delete songs if user is an artist
+      await request.query(`
+        DELETE FROM [Song]
+        WHERE artist_id IN (SELECT artist_id FROM [Artist] WHERE user_id = @user_id)`);
+
+      // Delete albums if user is an artist
+      await request.query(`
+        DELETE FROM [Album]
+        WHERE artist_id IN (SELECT artist_id FROM [Artist] WHERE user_id = @user_id)`);
+
+      // Delete artist record if exists
+      await request.query(`
+        DELETE FROM [Artist]
+        WHERE user_id = @user_id`);
+
+      // Finally delete the user
+      await request.query(`
+        DELETE FROM [User]
+        WHERE user_id = @user_id`);
+
+      await transaction.commit();
+      res.json({ success: true, message: 'Account deleted successfully' });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -802,6 +1441,11 @@ router.get("/albums", async (req, res) => {
     console.error('Route error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
-});
+
+})
+// End /album-new
+
+
 //End Homepage: Yeni
 export default router;
+

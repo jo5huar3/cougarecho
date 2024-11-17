@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Search, Home, Settings, Play, Edit2, Loader, LogOut, X } from 'lucide-react';
 import Sidebar from '../../components/sidebar/Sidebar';
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import Photo from '../photo/Photo'; // Adjust path as needed
 
 // Mock API
 const mockApi = {
@@ -210,14 +211,14 @@ const Admin = () => {
           {/* Profile section */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center">
-                <div className="w-32 h-32 bg-gray-700 rounded-full mr-6"></div>
-                <div>
-                  <p className="text-sm text-gray-400">Profile</p>
-                  <h2 className="text-4xl font-bold">{adminProfile.name}</h2>
-                  <p className="text-sm text-gray-400">{adminProfile.playlists} Playlists</p>
-                </div>
-              </div>
+            <div className="flex items-center">
+  <Photo />
+  <div>
+    <p className="text-sm text-gray-400">Profile</p>
+    <h2 className="text-4xl font-bold">{adminProfile.name}</h2>
+    <p className="text-sm text-gray-400">{adminProfile.playlists} Playlists</p>
+  </div>
+</div>
               <Link to="/useredit" className="text-gray-400 hover:text-white">
                 <Edit2 className="w-5 h-5" />
               </Link>

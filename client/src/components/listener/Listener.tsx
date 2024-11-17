@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Search, Home, Settings, Menu, PlusCircle, User, Edit2, Loader, X, Music, LogOut, Play } from 'lucide-react';
 import { UserContext } from '../../context/UserContext';
 import axios from '../../api/axios';
+import Photo from '../photo/Photo'; // Adjust path as needed
 
 interface Album {
   album_id: number;
@@ -260,18 +261,15 @@ const Listener = () => {
         {/* Profile section */}
         <div className="bg-[#1A1A1A] rounded-lg p-6 mb-8">
           <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="w-32 h-32 bg-gray-700 rounded-full mr-6">
-                {userProfile?.avatar && (
-                  <img src={URL.createObjectURL(avatar)} alt="Album Cover" className="w-full h-full object-cover rounded-full" />
-                )}
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Profile</p>
-                <h2 className="text-4xl font-bold">{userProfile.name}</h2>
-                <p className="text-sm text-gray-400">{userProfile.playlists} Playlists</p>
-              </div>
-            </div>
+          <div className="flex items-center">
+  <Photo />
+  <div>
+    <p className="text-sm text-gray-400">Profile</p>
+    <h2 className="text-4xl font-bold">{userProfile.name}</h2>
+    <p className="text-sm text-gray-400">{userProfile.playlists} Playlists</p>
+  </div>
+</div>
+
             <Link to="/useredit" className="text-gray-400 hover:text-white">
               <Edit2 className="w-5 h-5" />
             </Link>

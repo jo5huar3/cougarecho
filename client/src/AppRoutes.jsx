@@ -57,7 +57,7 @@ export const PublicRoutes = [
   },
 
   {
-    path: '/album',
+    path: '/album/:id',
     element: <AlbumPage />
   },
   {
@@ -120,7 +120,10 @@ export const PublicRoutes = [
     element: <UserRating />
   },
 
-
+  {
+    path: '/newalbum',
+    element: <Newalbum />
+  },
 
 ];
 export const ListenerRoutes = [
@@ -144,12 +147,9 @@ export const ArtistRoutes = [
   },
 
 
-  {
-    path: '/newalbum',
-    element: <Newalbum />
-  },
 ]
 export const AdminRoutes = [
+
 
   {
     path: '/admin',
