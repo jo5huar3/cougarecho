@@ -14,11 +14,13 @@ const SECRET_KEY = process.env.ACCESS_TOKEN_SECRET;
 const userRoles = { "Listener": 1, "Artist": 2, "Admin": 3 }
 
 
+
 router.get("/data", async (req, res) => {
   try {
     const myQuery = "SELECT * FROM UserRole";
     const request = new sql.Request();
     request.query(myQuery, async (err, result) => {
+    
       res.json(result.recordset);
     })
 
@@ -30,6 +32,7 @@ router.get("/data", async (req, res) => {
 router.get("/test", (req, res) => {
   res.json([{ "test": "hello world!" }])
 });
+
 // Begin Josh Lewis
 router.get('/listener/:id', async (req, res) => {
   try {
@@ -430,26 +433,12 @@ router.get('/register/:username', async (req, res) => {
 // End /register get method:
 
 // Begin /register
-router.post('/register', async (req, res) => {
+router.post("/register", async (req, res) => {
   try {
-    const { username, password, role_id, country, bio } = req.body;
 
-    // Role mapping
-    let numericRoleId;
-    if (typeof role_id === 'string') {
-      if (role_id.toLowerCase() === 'artist') {
-        numericRoleId = 2;
-      } else if (role_id.toLowerCase() === 'listener') {
-        numericRoleId = 1;
-      } else {
-        return res.status(400).json({ error: 'Invalid role specified.' });
-      }
-    } else {
-      numericRoleId = parseInt(role_id, 10);
-    }
-
-    if (!numericRoleId || !password || !username) {
-      return res.status(400).json({ error: 'All fields are required.' });
+    const { username, password, role_id } = req.body;
+    if (!role_id || !password || !username) {
+      return res.status(400).json({ error: "All fields are required." });
     }
 
     const password_hash = await bcrypt.hash(password, 4);
@@ -460,9 +449,10 @@ router.post('/register', async (req, res) => {
           VALUES (@user_name, @password_hash, GETDATE(), @role_id)`;
 
     const request = new sql.Request();
-    request.input('user_name', sql.NVarChar, username);
-    request.input('password_hash', sql.NVarChar, password_hash);
-    request.input('role_id', sql.Int, numericRoleId);
+
+    request.input("user_name", sql.NVarChar, username);
+    request.input("password_hash", sql.NVarChar, password_hash);
+    request.input("role_id", sql.Int, role_id); // Pass role_id directly
 
     const result = await request.query(myQuery);
 
@@ -486,20 +476,22 @@ router.post('/register', async (req, res) => {
 
       const token = jwt.sign(
         {
-          user_id: user_id,
-          user_name: result.recordset[0].username,
+
+          user_id: result.recordset[0].user_id,
+          username: result.recordset[0].username,
           role_id: result.recordset[0].role_id,
         },
         SECRET_KEY,
-        { expiresIn: '1h' }
+        { expiresIn: "1h" }
       );
 
       res.json({ token });
     } else {
-      res.status(500).json({ error: "Database server did not return anything." });
+
+      res.json({ error: "Database server did not return anything." });
     }
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.json({ error: error.message });
   }
 });
 
@@ -524,17 +516,23 @@ router.get('/users', async (req, res) => {
 });
 
 //search for songs and artist name
-
 router.get('/songs/search', async (req, res) => {
-  const { keyword = '' } = req.query;
-
   try {
-    const pool = await sql.connect('your-database-connection-string');
-    const request = pool.request();
-    request.input('keyword', sql.NVarChar, `%${keyword}%`); // Use wildcards to match the keyword
+    // Get and validate the keyword
+    const keyword = req.query.keyword?.toString() || '';
+    
+    // Log for debugging
+    console.log('Search request received:', { keyword });
 
-    const myQuery = `
-      SELECT 
+    if (keyword.length < 2) {
+      return res.json([]); // Return empty array for short queries
+    }
+
+    const request = new sql.Request();
+    request.input('keyword', sql.NVarChar, `%${keyword}%`);
+
+    const result = await request.query(`
+      SELECT TOP 10
           s.song_id, 
           s.song_name, 
           s.duration, 
@@ -542,23 +540,26 @@ router.get('/songs/search', async (req, res) => {
           s.created_at, 
           s.isAvailable, 
           a.album_name, 
-          u.display_name AS artist_name, 
-          g.genre_name 
+          u.display_name AS artist_name
       FROM [dbo].[Song] s
       JOIN [dbo].[Artist] ar ON s.artist_id = ar.artist_id
       JOIN [dbo].[User] u ON ar.user_id = u.user_id
       JOIN [dbo].[Album] a ON s.album_id = a.album_id
-      LEFT JOIN [dbo].[Genre] g ON s.genre_id = g.genre_id
       WHERE s.song_name LIKE @keyword 
-         OR u.display_name LIKE @keyword 
-         OR u.first_name + ' ' + u.last_name LIKE @keyword`;
+         OR u.display_name LIKE @keyword
+      ORDER BY s.song_name ASC
+      `); // Limit results for better performance
 
-    const result = await request.query(myQuery);
-    res.status(200).json(result.recordset);
+    // Log the results for debugging
+    console.log(`Found ${result.recordset.length} results`);
 
+    return res.status(200).json(result.recordset);
   } catch (error) {
-    console.error('Error fetching songs or artists:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Search error:', error);
+    return res.status(500).json({ 
+      error: 'Error searching songs',
+      details: error.message 
+    });
   }
 });
 router.get('/user-rating', async (req, res) => {
@@ -745,10 +746,262 @@ router.post('/create-admin', async (req, res) => {
 
 //End Thinh Bui
 
+//Will Nguyen Begin
+
+//Start: Create New Playlist
+router.post("/playlist/new", async (req, res) => {
+  try {
+    const { title, userId, avatar } = req.body;
+
+    if (!title || !userId) {
+      return res
+        .status(400)
+        .json({ message: "Playlist title and user ID are required." });
+    }
+
+    const request = new sql.Request();
+    request.input("title", sql.VarChar(50), title);
+    request.input("userId", sql.Int, userId);
+    request.input("avatar", sql.VarChar(255), avatar || null); // avatar can be null
+
+    const result = await request.query(`
+      INSERT INTO [Playlist] (title, user_id, created_at, updated_at, avatar)
+      OUTPUT inserted.playlist_id
+      VALUES (@title, @userId, GETDATE(), GETDATE(), @avatar)
+    `);
+
+    const playlistId = result.recordset[0].playlist_id;
+    res
+      .status(200)
+      .json({ message: "Playlist created successfully", playlistId });
+  } catch (err) {
+    console.error("Error creating playlist:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+//End: Create New Playlist
+
+//Start: Add song to playlist
+router.post("/playlist/:playlist_id/song", async (req, res) => {
+  try {
+    //Code to handle request goes here
+    const { playlist_id } = req.params;
+    const { song_id, active } = req.body;
+
+    if (!playlist_id || !song_id) {
+      return res.status(400).json({ message: "Playlist ID and song are required." });
+    }
+
+    const request = new sql.Request();
+
+    request.input("playlist_id", sql.Int, playlist_id);
+    request.input("song_id", sql.Int, song_id);
+    request.input("created_at", sql.DateTime, new Date());
+    request.input("updated_at", sql.DateTime, new Date());
+    request.input("active", sql.Bit, active !== undefined ? active : 1); // Default to active if not provided
+
+    const result = await request.query(`
+      INSERT INTO [PlaylistSongs] (playlist_id, song_id, created_at, updated_at, active)
+      VALUES (@playlist_id, @song_id, @created_at, @updated_at, @active)
+      `);
+
+    if (result.rowsAffected[0] === 1) {
+      res.status(200).json({ message: "Song added to playlist successfully" });
+    } else {
+      res.status(500).json({ error: "Failed to add song to playlist" });
+    }
+
+  } catch (err) {
+    console.error("Error adding song to playlist:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+//End: Add Song to Playlist
+
+// Start: Delete song from playlist
+router.delete('/playlist/:playlist_id/song/:song_id', async (req, res) => {
+  try {
+    const { playlist_id, song_id } = req.params;
+
+    if (!playlist_id || !song_id) {
+      return res.status(400).json({ message: 'Playlist ID and Song ID are required' });
+    }
+
+    const request = new sql.Request();
+    request.input('playlist_id', sql.Int, playlist_id);
+    request.input('song_id', sql.Int, song_id);
+
+    const result = await request.query(`
+      DELETE FROM [PlaylistSongs]
+      WHERE playlist_id = @playlist_id AND song_id = @song_id
+    `);
+
+    if (result.rowsAffected[0] === 1) {
+      res.status(200).json({ message: 'Song deleted from playlist successfully' });
+    } else {
+      res.status(404).json({ message: 'Song not found in playlist' });
+    }
+  } catch (err) {
+    console.error('Error deleting song from playlist:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//End: Delete song from playlist
+
+// Delete playlist
+router.delete('/playlist/:playlist_id', async (req, res) => {
+  try {
+    const { playlist_id } = req.params;
+
+    if (!playlist_id) {
+      return res.status(400).json({ message: 'Playlist ID is required' });
+    }
+
+    const request = new sql.Request();
+    request.input('playlist_id', sql.Int, playlist_id);
+
+    // First, delete all related songs in PlaylistSongs (optional, if required)
+    await request.query(`
+      DELETE FROM [PlaylistSongs]
+      WHERE playlist_id = @playlist_id
+    `);
+
+    // Then, delete the playlist itself
+    const result = await request.query(`
+      DELETE FROM [Playlist]
+      WHERE playlist_id = @playlist_id
+    `);
+
+    if (result.rowsAffected[0] === 1) {
+      res.status(200).json({ message: 'Playlist deleted successfully' });
+    } else {
+      res.status(404).json({ message: 'Playlist not found' });
+    }
+  } catch (err) {
+    console.error('Error deleting playlist:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//End: delete playlist
+
+//Start: get playlist
+
+router.get('/playlist/:playlist_id', async (req, res) => {
+  try {
+    const { playlist_id } = req.params;
+    const request = new sql.Request();
+    request.input('playlist_id', sql.Int, playlist_id);
+    
+    // First get playlist details
+    const playlist = await request.query(`
+      SELECT p.*, u.username as creator_name 
+      FROM [Playlist] p
+      JOIN [User] u ON p.user_id = u.user_id
+      WHERE p.playlist_id = @playlist_id
+    `);
+
+    // Then get playlist songs
+    const songs = await request.query(`
+      SELECT s.*, ps.created_at as added_at
+      FROM [Song] s
+      JOIN [PlaylistSongs] ps ON s.song_id = ps.song_id
+      WHERE ps.playlist_id = @playlist_id AND ps.active = 1
+      ORDER BY ps.created_at DESC
+    `);
+
+    res.json({
+      ...playlist.recordset[0],
+      songs: songs.recordset
+    });
+  } catch (err) {
+    console.error('Error fetching playlist:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//End: get playlist
+
+//Start: update playlist name
+router.put('/playlist/:playlist_id', async (req, res) => {
+  try {
+    const { playlist_id } = req.params;
+    const { title } = req.body;
+    
+    const request = new sql.Request();
+    request.input('playlist_id', sql.Int, playlist_id);
+    request.input('title', sql.VarChar, title);
+    
+    await request.query(`
+      UPDATE [Playlist]
+      SET title = @title, updated_at = GETDATE()
+      WHERE playlist_id = @playlist_id
+    `);
+
+    res.json({ message: 'Playlist updated successfully' });
+  } catch (err) {
+    console.error('Error updating playlist:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//End: update playlist name
+router.put('/playlist/:playlist_id', async (req, res) => {
+  try {
+    const { playlist_id } = req.params;
+    const { title } = req.body;
+    
+    const request = new sql.Request();
+    request.input('playlist_id', sql.Int, playlist_id);
+    request.input('title', sql.VarChar, title);
+    
+    await request.query(`
+      UPDATE [Playlist]
+      SET title = @title, updated_at = GETDATE()
+      WHERE playlist_id = @playlist_id
+    `);
+
+    res.json({ message: 'Playlist updated successfully' });
+  } catch (err) {
+    console.error('Error updating playlist:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//Start: get user playlists
+// Get user's playlists
+router.get('/playlists/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const request = new sql.Request();
+    request.input('userId', sql.Int, userId);
+    
+    const result = await request.query(`
+      SELECT 
+        p.playlist_id,
+        p.title,
+        p.avatar,
+        p.created_at,
+        p.updated_at,
+        p.user_id
+      FROM [Playlist] p
+      WHERE p.user_id = @userId
+      ORDER BY p.created_at DESC
+    `);
+    
+    console.log('Found playlists:', result.recordset); // Fixed logging statement
+    res.json(result.recordset);
+  } catch (err) {
+    console.error('Error fetching user playlists:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//End: get user playlists
+
+//Will Nguyen End
+
 //Homepage: Yeni
 // In your api.js file, update the routes
 // Get top 3 artists
 router.get("/artists", async (req, res) => {
+
   try {
     const request = new sql.Request();
     const query = `
@@ -802,6 +1055,11 @@ router.get("/albums", async (req, res) => {
     console.error('Route error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
-});
+
+})
+// End /album-new
+
+
 //End Homepage: Yeni
 export default router;
+
