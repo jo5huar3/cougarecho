@@ -7,23 +7,19 @@ import path from 'path'
 import fs from 'fs';
 import { fileURLToPath } from "url";
 import multer from "multer";
-import cors from 'cors';
 dotenv.config();
 
 const router = express.Router();
 const SECRET_KEY = process.env.ACCESS_TOKEN_SECRET;
 const userRoles = { "Listener": 1, "Artist": 2, "Admin": 3 }
 
-router.use(cors({
-  origin: 'http://localhost:5173', // Your React app URL
-  credentials: true
-}));
+
 
 router.get("/data", async (req, res) => {
   try {
     const myQuery = "SELECT * FROM UserRole";
     const request = new sql.Request();
-    request.query(myQuery, async (err, result) => {
+    request.query(myQuery, async (err, result) => {å
       res.json(result.recordset);
     })
 
@@ -35,6 +31,7 @@ router.get("/data", async (req, res) => {
 router.get("/test", (req, res) => {
   res.json([{ "test": "hello world!" }])
 });
+
 // Get artist profile and counts
 router.get('/artist/:id', async (req, res) => {
   try {
@@ -360,7 +357,7 @@ router.get('/songs/search', async (req, res) => {
     request.input('keyword', sql.NVarChar, `%${keyword}%`);
 
     const result = await request.query(`
-      SELECT 
+      SELECT TOP 10
           s.song_id, 
           s.song_name, 
           s.duration, 
@@ -376,7 +373,7 @@ router.get('/songs/search', async (req, res) => {
       WHERE s.song_name LIKE @keyword 
          OR u.display_name LIKE @keyword
       ORDER BY s.song_name ASC
-      LIMIT 10`); // Limit results for better performance
+      `); // Limit results for better performance
 
     // Log the results for debugging
     console.log(`Found ${result.recordset.length} results`);
@@ -530,6 +527,117 @@ router.delete('/playlist/:playlist_id', async (req, res) => {
   }
 });
 //End: delete playlist
+
+//Start: get playlist
+
+router.get('/playlist/:playlist_id', async (req, res) => {
+  try {
+    const { playlist_id } = req.params;
+    const request = new sql.Request();
+    request.input('playlist_id', sql.Int, playlist_id);
+    
+    // First get playlist details
+    const playlist = await request.query(`
+      SELECT p.*, u.username as creator_name 
+      FROM [Playlist] p
+      JOIN [User] u ON p.user_id = u.user_id
+      WHERE p.playlist_id = @playlist_id
+    `);
+
+    // Then get playlist songs
+    const songs = await request.query(`
+      SELECT s.*, ps.created_at as added_at
+      FROM [Song] s
+      JOIN [PlaylistSongs] ps ON s.song_id = ps.song_id
+      WHERE ps.playlist_id = @playlist_id AND ps.active = 1
+      ORDER BY ps.created_at DESC
+    `);
+
+    res.json({
+      ...playlist.recordset[0],
+      songs: songs.recordset
+    });
+  } catch (err) {
+    console.error('Error fetching playlist:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//End: get playlist
+
+//Start: update playlist name
+router.put('/playlist/:playlist_id', async (req, res) => {
+  try {
+    const { playlist_id } = req.params;
+    const { title } = req.body;
+    
+    const request = new sql.Request();
+    request.input('playlist_id', sql.Int, playlist_id);
+    request.input('title', sql.VarChar, title);
+    
+    await request.query(`
+      UPDATE [Playlist]
+      SET title = @title, updated_at = GETDATE()
+      WHERE playlist_id = @playlist_id
+    `);
+
+    res.json({ message: 'Playlist updated successfully' });
+  } catch (err) {
+    console.error('Error updating playlist:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//End: update playlist name
+router.put('/playlist/:playlist_id', async (req, res) => {
+  try {
+    const { playlist_id } = req.params;
+    const { title } = req.body;
+    
+    const request = new sql.Request();
+    request.input('playlist_id', sql.Int, playlist_id);
+    request.input('title', sql.VarChar, title);
+    
+    await request.query(`
+      UPDATE [Playlist]
+      SET title = @title, updated_at = GETDATE()
+      WHERE playlist_id = @playlist_id
+    `);
+
+    res.json({ message: 'Playlist updated successfully' });
+  } catch (err) {
+    console.error('Error updating playlist:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//Start: get user playlists
+// Get user's playlists
+router.get('/playlists/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const request = new sql.Request();
+    request.input('userId', sql.Int, userId);
+    
+    const result = await request.query(`
+      SELECT 
+        p.playlist_id,
+        p.title,
+        p.avatar,
+        p.created_at,
+        p.updated_at,
+        p.user_id
+      FROM [Playlist] p
+      WHERE p.user_id = @userId
+      ORDER BY p.created_at DESC
+    `);
+    
+    console.log('Found playlists:', result.recordset); // Fixed logging statement
+    res.json(result.recordset);
+  } catch (err) {
+    console.error('Error fetching user playlists:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//End: get user playlists
 
 //Will Nguyen End
 
