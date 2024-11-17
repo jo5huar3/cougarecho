@@ -399,36 +399,78 @@ router.get('/register/:username', async (req, res) => {
 // Begin /register
 router.post('/register', async (req, res) => {
   try {
-    const { username, password, role_id } = req.body;
-    if (!role_id || !password || !username) {
+    const { username, password, role_id, country, bio } = req.body;
+
+    // Role mapping
+    let numericRoleId;
+    if (typeof role_id === 'string') {
+      if (role_id.toLowerCase() === 'artist') {
+        numericRoleId = 2;
+      } else if (role_id.toLowerCase() === 'listener') {
+        numericRoleId = 1;
+      } else {
+        return res.status(400).json({ error: 'Invalid role specified.' });
+      }
+    } else {
+      numericRoleId = parseInt(role_id, 10);
+    }
+
+    if (!numericRoleId || !password || !username) {
       return res.status(400).json({ error: 'All fields are required.' });
     }
+
     const password_hash = await bcrypt.hash(password, 4);
+
     const myQuery = `
           INSERT INTO [User] (username, password_hash, created_at, role_id)
           OUTPUT inserted.user_id, inserted.username, inserted.role_id
           VALUES (@user_name, @password_hash, GETDATE(), @role_id)`;
+
     const request = new sql.Request();
     request.input('user_name', sql.NVarChar, username);
     request.input('password_hash', sql.NVarChar, password_hash);
-    request.input('role_id', sql.Int, userRoles[role_id]);
-    const result = await request.query(myQuery)//, async (err, result) => {
+    request.input('role_id', sql.Int, numericRoleId);
+
+    const result = await request.query(myQuery);
+
     if (result?.rowsAffected[0] == 1) {
+      const user_id = result.recordset[0].user_id;
+
+      // If the user role is "Artist" (role_id = 2), add them to the Artist table
+      if (numericRoleId === 2) {
+        const artistQuery = `
+          INSERT INTO [Artist] (user_id, artist_name, country, bio, created_at, isVerified)
+          VALUES (@user_id, @artist_name, @country, @bio, GETDATE(), 0)`;
+
+        const artistRequest = new sql.Request();
+        artistRequest.input('user_id', sql.Int, user_id);
+        artistRequest.input('artist_name', sql.NVarChar, username);
+        artistRequest.input('country', sql.NVarChar, country || 'Unknown');
+        artistRequest.input('bio', sql.NVarChar, bio || 'No biography provided');
+
+        await artistRequest.query(artistQuery);
+      }
+
       const token = jwt.sign(
         {
-          user_id: result.recordset[0], user_name: result.recordset[1], role_id: result.recordset[2]
+          user_id: user_id,
+          user_name: result.recordset[0].username,
+          role_id: result.recordset[0].role_id,
         },
         SECRET_KEY,
         { expiresIn: '1h' }
       );
+
       res.json({ token });
     } else {
-      res.json({ error: "database server did not return anything." })
+      res.status(500).json({ error: "Database server did not return anything." });
     }
   } catch (error) {
-    res.json({ "error": error.message })
+    res.status(500).json({ error: error.message });
   }
 });
+
+
 // End /register
 
 // End Josh Lewis
