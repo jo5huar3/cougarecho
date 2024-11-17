@@ -1,9 +1,8 @@
 import React, { useState, useRef, useContext } from 'react';
-import { Search, Home, Settings, PlusCircle, Image as ImageIcon } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Search, Home, Settings, Menu, User, PlusCircle, X, Music, LogOut, Upload, Image as ImageIcon, Edit2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import axios from '../../api/axios';
 import { UserContext } from '../../context/UserContext';
-import Sidebar from '../../components/sidebar/Sidebar';  // Import the Sidebar component
 
 const NEW_ALBUM_URL = '/newalbum';
 
@@ -20,7 +19,7 @@ const ALLOWED_AUDIO_TYPES = ['audio/mpeg'];
 
 const UploadPage: React.FC = () => {
   const { user } = useContext(UserContext);
-  const navigate = useNavigate();
+  const [isMenuExpanded, setIsMenuExpanded] = useState<boolean>(false);
   const [albumName, setAlbumName] = useState<string>('');
   const [albumCover, setAlbumCover] = useState<File | null>(null);
   const [songs, setSongs] = useState<File[]>([]);
@@ -32,23 +31,9 @@ const UploadPage: React.FC = () => {
     likesSaves: 0,
     revenue: 0
   });
-  const [searchQuery, setSearchQuery] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
-  const handleCreatePlaylist = async (e) => {
-    e.preventDefault();
-    try {
-      console.log('Sending album');
-      const data = new FormData();
-      const album_info = { album_name: albumName, user_id: user.id };
-
-
-    } catch (error) {
-      console.error('Registration request failed:', error);
-    }
-    console.log("Create new playlist");
-  };
   // Upload album image
   const handleAlbumCoverUpload = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const file = event.target.files?.[0];
@@ -63,35 +48,35 @@ const UploadPage: React.FC = () => {
   const handleSongUpload = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const files = event.target.files;
     if (files) {
-      const mp3Files = Array.from(files).filter(file => file);
-      if (mp3Files.length != files.length) {
-        setMessage('Please upload only MP3 files.');
+      const mp3Files = Array.from(files).filter(file => ALLOWED_AUDIO_TYPES.includes(file.type));
+      if (mp3Files.length !== files.length) {
+        alert('Please upload only MP3 files.');
+      } else {
+        setSongs(prevSongs => [...prevSongs, ...mp3Files]);
       }
-      setSongs(prevSongs => [...prevSongs, ...mp3Files]);
     }
   };
 
-
-
-  const handleUpload = async (e): Promise<void> => {
+  // Handle album and song upload
+  const handleUpload = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
-
+  
     if (!albumName || !albumCover || songs.length === 0) {
       alert('Please provide an album title, cover image, and at least one song.');
       return;
     }
-
+  
     try {
       const albumFormData = new FormData();
       albumFormData.append('albumName', albumName);
       albumFormData.append('user_id', user.user_id);
       albumFormData.append('img', albumCover);
-
+  
       // Upload the album cover and details
       const albumResponse = await axios.post('/album-insert', albumFormData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-
+  
       const album_id = albumResponse?.data?.album_id;
       console.log("album_id: ", album_id);
       if (album_id) {
@@ -100,54 +85,20 @@ const UploadPage: React.FC = () => {
           songFormData.append('album_id', album_id);
           songFormData.append('user_id', user.user_id);
           songFormData.append('song', song);
-
+  
           try {
             await axios.post('/song-insert', songFormData, {
               headers: { 'Content-Type': 'multipart/form-data' }
             });
-          } catch (err) {
-            console.log(err.message)
+          } catch (songError) {
+            console.error('Song upload error:', songError);
+            if (songError.response && songError.response.status === 403) {
+              alert(`ERROR: ${songError.response.data.error}`);
+              return;
+            }
           }
-          //console.log(response.status.toString)
-
         }
-      }
-      setIsUploaded(true);
-      setUploadedAlbum({
-        name: albumName,
-        songCount: songs.length,
-        streams: 0,
-        likesSaves: 0,
-        revenue: 0
-      });
-      setMessage('Album successfully uploaded and stored in the database.');
-
-    } catch (err) {
-      console.log(err.message);
-    }
-    /*
-    if (songs.length === 0) {
-      setMessage('Please select at least one MP3 file to upload.');
-      return;
-    }
-    console.log('Upload started. This may take a while...');
-
-    try {
-      // Simulate API call to upload files and store in database
-      const formData = new FormData();
-      for (let i = 0; i < songs.length; i++) {
-        formData.append('song', songs[i])
-      }
-      if (albumCover?.size) {
-        formData.append('img', albumCover)
-        formData.append('album_name', albumName)
-        const response = await axios.post('/newalbum', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-        console.log('Successfull post', albumCover)
-
+  
         setIsUploaded(true);
         setUploadedAlbum({
           name: albumName,
@@ -167,19 +118,28 @@ const UploadPage: React.FC = () => {
       }
     }
   };
-
-  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchQuery(value);
-    if (value.length > 0) {
-      navigate(`/search?keyword=${encodeURIComponent(value)}`, { replace: true });
-    }
-  };
+  
+  
 
   return (
     <div className="bg-[#121212] text-[#EBE7CD] min-h-screen flex font-sans">
       {/* Sidebar */}
-      <Sidebar />
+      <div className={`w-16 flex flex-col items-center py-4 bg-black border-r border-gray-800 transition-all duration-300 ease-in-out ${isMenuExpanded ? 'w-64' : 'w-16'}`}>
+        <div className="flex flex-col items-center space-y-4 mb-8">
+          <button onClick={() => setIsMenuExpanded(!isMenuExpanded)} className="text-[#1ED760] hover:text-white" aria-label="Menu">
+            <Menu className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="flex-grow"></div>
+        <div className="mt-auto flex flex-col items-center space-y-4 mb-4">
+          <button className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-[#EBE7CD] hover:text-white" aria-label="Add">
+            <PlusCircle className="w-6 h-6" />
+          </button>
+          <Link to="/useredit" aria-label="User Profile" className="text-[#1ED760] hover:text-white">
+            <User className="w-6 h-6" />
+          </Link>
+        </div>
+      </div>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
@@ -189,8 +149,6 @@ const UploadPage: React.FC = () => {
             <div className="relative">
               <input
                 type="text"
-                value={searchQuery}
-                onChange={handleSearchInputChange}
                 placeholder="Search by song or artist"
                 className="w-full bg-[#2A2A2A] rounded-full py-2 pl-10 pr-4 text-sm text-[#EBE7CD]"
               />
