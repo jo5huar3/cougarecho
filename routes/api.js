@@ -32,6 +32,73 @@ router.get("/test", (req, res) => {
   res.json([{ "test": "hello world!" }])
 });
 
+// Begin Josh Lewis
+router.get('/listener/:id', async (req, res) => {
+  try {
+    const user_id = req.params.id;
+    const request = await new sql.Request();
+    request.input('user_id', sql.Int, user_id)
+    const myQuery = `SELECT U.display_name, \
+            ( \
+            SELECT COUNT(*) FROM [Playlist] P where P.user_id = U.user_id \
+            ) playlists, U.avatar FROM [User] U WHERE U.user_id = @user_id`;
+    request.query(myQuery, async (err, result) => {
+      console.log(result?.recordset?.[0])
+      if (result?.recordset?.length > 0) {
+        return res.json(result.recordset[0]);
+      } else {
+        return res.json({ display_name: '', playlists: '' });
+      }
+    })
+
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+// Begin get album_cover IMAGE
+router.get('/album/:album_id/IMG', async (req, res) => {
+  try {
+    const album_id = req.params.album_id;
+    const request = new sql.Request();
+    request.input('album_id', sql.Int, album_id)
+    const myQuery = 'SELECT A.album_cover FROM [Album] A WHERE A.album_id = @album_id;';
+    request.query(myQuery, async (err, result) => {
+      if (result?.recordset?.length > 0) {
+        console.log("IMAGE BACKEND: ", result.recordset?.[0].album_cover)
+        const imageBuffer = result?.recordset?.[0].album_cover;
+        res.setHeader('Content-Type', 'image/jpeg'); // Set the correct MIME type
+        res.send(imageBuffer);
+      } else {
+        return res.status(300).json({ message: "Album does not exist." });
+      }
+    })
+
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+})
+router.get('/artist/:artist_id/IMG', async (req, res) => {
+  try {
+    const artist_id = req.params.artist_id;
+    const request = new sql.Request();
+    request.input('artist_id', sql.Int, artist_id)
+    const myQuery = 'SELECT A.album_cover FROM [Album] A WHERE A.album_id = @album_id;';
+    request.query(myQuery, async (err, result) => {
+      if (result?.recordset?.length > 0) {
+        console.log("IMAGE BACKEND: ", result.recordset?.[0].album_cover)
+        const imageBuffer = result?.recordset?.[0].album_cover;
+        res.setHeader('Content-Type', 'image/jpeg'); // Set the correct MIME type
+        res.send(imageBuffer);
+
+      } else {
+        return res.status(300).json({ message: "Album does not exist." });
+      }
+    })
+
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+})
 // Get artist profile and counts
 router.get('/artist/:id', async (req, res) => {
   try {
@@ -59,11 +126,11 @@ router.get('/artist/:id/albumlatest', async (req, res) => {
     const id = req.params.id;
     const request = new sql.Request();
     request.input('user_id', sql.Int, id)
-    const myQuery = 'SELECT A.album_name,\
-          (Select SUM(B.plays) FROM Song B WHERE A.album_id = B.album_id ) album_streams, \
-          (Select COUNT(C.song_id) FROM [Likes] C, [Song] D WHERE C.song_id = D.song_id and D.album_id = A.album_id ) album_likes \
+    const myQuery = 'SELECT A.album_name name,\
+          (Select SUM(B.plays) FROM Song B WHERE A.album_id = B.album_id ) streams, \
+          (Select COUNT(C.song_id) FROM [Likes] C, [Song] D WHERE C.song_id = D.song_id and D.album_id = A.album_id ) likeSaves \
           FROM [Album] A, [Artist] ART WHERE A.artist_id = ART.artist_id and ART.user_id = @user_id and A.create_at = \
-          (select max(A_NEW.create_at) from [Album] A_NEW where A_NEW.album_id = A.album_id);';
+          (select max(A_NEW.create_at) from [Album] A_NEW where A_NEW.artist_id = A.artist_id);';
     request.query(myQuery, async (err, result) => {
       if (result?.recordset?.length > 0) {
         res.json(result.recordset[0]);
@@ -76,12 +143,44 @@ router.get('/artist/:id/albumlatest', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// Begin Josh Lewis
+router.get('/album/playcount/3', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const request = new sql.Request();
+    //request.input('user_id', sql.Int, id)
+    const myQuery = 'SELECT TOP 3 A.album_id, A.album_name, ART.artist_name, \
+     AP.playCount, AP.lastPlayed, A.album_cover \
+    FROM [Album] A, [Artist] ART, [AlbumPlays] AP \
+    where A.album_cover is not null and A.artist_id = ART.artist_id and A.album_id = AP.album_id ORDER BY AP.playCount DESC;';
+    const result = await request.query(myQuery);
+    const albums = result?.recordset?.map((album) => {
+      const base64Image = album.album_cover
+        ? Buffer.from(album.album_cover).toString('base64')
+        : null;
+      return {
+        album_id: album.album_id,
+        album_name: album.album_name,
+        artist_name: album.artist_name,
+        playCount: album.playCount,
+        lastPlayed: album.lastPlayed,
+        album_cover: base64Image ? `data:image/jpeg;base64,${base64Image}` : null, // Include MIME type prefix
+      };
+
+    })
+
+    /*console.log([{ ...result?.recordset?.[0], album_cover: null },
+    { ...result?.recordset?.[1], album_cover: null }, { ...result?.recordset?.[2], album_cover: null }])*/
+    return res.json(albums);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Create 'uploads' directory if it doesn't exist
-const uploadDir = path.join(__dirname, 'uploads');
+const uploadDir = path.join('/tmp/uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
@@ -387,7 +486,6 @@ router.get('/songs/search', async (req, res) => {
     });
   }
 });
-
 //End Thinh Bui
 
 //Will Nguyen Begin
@@ -641,172 +739,69 @@ router.get('/playlists/user/:userId', async (req, res) => {
 
 //Will Nguyen End
 
+//Homepage: Yeni
+// In your api.js file, update the routes
+// Get top 3 artists
+router.get("/artists", async (req, res) => {
 
-export default router;
-/*
-router.post("/new1album", upload.single('img'), async function (req, res, next) {
   try {
-    console.log(req.file)
     const request = new sql.Request();
-    request.input('img_file', sql.VarBinary, req?.file?.buffer)
-    const result = await request.query(
-      'INSERT INTO [Test] (img_file) VALUES(@img_file)'
-    )
-    if (result.rowsAffected == 1) {
-      console.log('Succsessful upload into DB.')
-    }
-    /*
-    try {
-      if (!req?.buffer) {
-        console.log('No files uploaded or album name missing.')
-        return res.status(400).send('No files uploaded or album name missing.');
-      }
-      const fileBuffer = req.file?.buffer;
-      //const fileName = req.file.originalname;
-      //const fileType = req.file.mimetype;
-  
-      const request = new sql.Request();
-      request.input('song_id', sql.Int, 1)
-      request.input('file', sql.VarBinary, fileBuffer)
-      //request.input('file_name', sql.VarBinary, fileName)
-  
-      const result = await request.query(
-        'INSERT INTO [SongFile] (song_id, file) \
-          VALUES(@song_id, @file)'
-      )
-      // Create album in database
-      /*
-      request.input('user_id', sql.VarChar, user_id);
-      request.input('album_name', sql.VarChar, album_name);
-      const result_alb = await request.query(
-        'INSERT INTO [Album] A (created_at, update_at, artist_id, album_name) \
-          OUTPUT inserted.artist_id, inserted.album_id VALUES (GETDATE(), GETDATE(), \
-            (SELECT artist_id from [Artist] Art where Art.user_id = @user_id), @album_name)'
-      );
-      if (result_alb?.rowsAffected[0] != 1) {
-        return res.status(400).send('No files uploaded or album name missing.');
-      }
-      const artist_id = (await result_alb).recordset?.[1];
-      const album_id = (await result_alb).recordset?.[2];
-      const genre_id = 1;
-      for (const file of req.files) {
-        //const filePath = `uploads/${file.filename}`;
-        //const fileBuffer = fs.readFileSync(filePath);
-        //request.input('artist_id', sql.VarChar, artist_id);
-        //request.input('album_id', sql.VarChar, album_id);
-        //request.input('genre_id', sql.Int, genre_id);
-        const result = await new sql.Request()
-          .input('album_id', sql.VarChar, album_id)
-          .input('artist_id', sql.VarChar, artist_id)
-          .input('song_name', sql.VarChar, album_name)
-          .input('isAvailable', sql.Bit, 1)
-          .query(
-            'INSERT INTO [Song] S (song_name, album_id, artist_id, created_at, isAvailable) \
-              OUTPUT inserted.song_id VALUES(@song_name, @album_id, @artist_id, GETDATE(), @isAvailable)'
-          );
-        await new sql.Request()
-          .input('song_id', sql.VarChar, result?.recordset?.[0])
-          .input('file', sql.VarBinary, file)
-          .query(
-            'INSERT INTO [SongFile] SF (song_id, file) VALUES (@song_id, @file)'
-          )
-        fs.unlinkSync(filePath);
-      }
-      
-    console.log(result?.rowsAffected + ' rows affected.')
-    return res.status(200).json({ 'msg': 'Success' });
-  
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
-  }*/
-/*
- }
- catch (err) {
-   console.log(err.message);
- }
-})
-*/
-/*
-router.post('/album/insert', async (req, res) => {
-  try {
-    const { id, name, instrument } = req.body;
-
-    // Create a query to insert data
     const query = `
-          INSERT INTO Album (create_at, update_at, cover_art, artist_id, album_name)
-          VALUES (@created, @updated, @cover_art, @artist_id, @name)
-      `;
-    const now = new Date();
-    const formattedDateTime = now.toISOString().slice(0, 19).replace('T', ' ');
-    // Use a prepared statement with parameterized inputs to avoid SQL injection
-    const request = new sql.Request();          // Bind the "id" parameter
-    request.input('created', sql.DateTime, formattedDateTime);
-    request.input('updated', sql.DateTime, formattedDateTime);
-    request.input('cover_art', sql.Image, null);
-    request.input('artist_id', sql.Int, 1);  // Bind the "name" parameter
-    request.input('name', sql.NVarChar, "Josh");  // Bind the "instrument" parameter
+      SELECT TOP 3
+        artist_id,
+        artist_name,
+        country
+      FROM [Artist]
+      WHERE artist_name IS NOT NULL
+      ORDER BY created_at DESC
+    `;
 
-    // Execute the query
-    await request.query(query);
-
-    res.status(200).send('Row inserted successfully');
+    request.query(query, (err, result) => {
+      if (err) {
+        console.error('Database query error:', err);
+        return res.status(500).json({ error: err.message });
+      }
+      res.json(result.recordset || []);
+    });
   } catch (err) {
-    console.error('Error inserting row: ', err);
-    res.status(500).send('Error inserting row');
+    console.error('Route error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
-*/
-/*
-router.post("/newalbum", upload, async (req, res) => {
-  try {
-    if (!req?.files) {
-      console.log('No files uploaded or album name missing.')
-      return res.status(400).send('No files uploaded or album name missing.');
-    }
-    const album_name = req.body.albumName;
-    const user_id = req.body.albumName;
-    const request = new sql.Request();
-    // Create album in database
-    request.input('user_id', sql.VarChar, user_id);
-    request.input('album_name', sql.VarChar, album_name);
-    const result_alb = await request.query(
-      'INSERT INTO [Album] A (created_at, update_at, artist_id, album_name) \
-        OUTPUT inserted.artist_id, inserted.album_id VALUES (GETDATE(), GETDATE(), \
-          (SELECT artist_id from [Artist] Art where Art.user_id = @user_id), @album_name)'
-    );
-    if (result_alb?.rowsAffected[0] != 1) {
-      return res.status(400).send('No files uploaded or album name missing.');
-    }
-    const artist_id = (await result_alb).recordset?.[1];
-    const album_id = (await result_alb).recordset?.[2];
-    const genre_id = 1;
-    for (const file of req.files) {
-      //const filePath = `uploads/${file.filename}`;
-      //const fileBuffer = fs.readFileSync(filePath);
-      //request.input('artist_id', sql.VarChar, artist_id);
-      //request.input('album_id', sql.VarChar, album_id);
-      //request.input('genre_id', sql.Int, genre_id);
-      const result = await new sql.Request()
-        .input('album_id', sql.VarChar, album_id)
-        .input('artist_id', sql.VarChar, artist_id)
-        .input('song_name', sql.VarChar, album_name)
-        .input('isAvailable', sql.Bit, 1)
-        .query(
-          'INSERT INTO [Song] S (song_name, album_id, artist_id, created_at, isAvailable) \
-            OUTPUT inserted.song_id VALUES(@song_name, @album_id, @artist_id, GETDATE(), @isAvailable)'
-        );
-      await new sql.Request()
-        .input('song_id', sql.VarChar, result?.recordset?.[0])
-        .input('file', sql.VarBinary, file)
-        .query(
-          'INSERT INTO [SongFile] SF (song_id, file) VALUES (@song_id, @file)'
-        )
-      fs.unlinkSync(filePath);
-    }
 
+// Get top 3 albums
+router.get("/albums", async (req, res) => {
+  try {
+    const request = new sql.Request();
+    const query = `
+      SELECT TOP 3
+        a.album_id,
+        a.album_name,
+        a.artist_id,
+        art.artist_name,
+        a.album_cover
+      FROM [Album] a
+      INNER JOIN [Artist] art ON a.artist_id = art.artist_id
+      WHERE a.album_name IS NOT NULL
+      ORDER BY a.create_at DESC
+    `;
+
+    request.query(query, (err, result) => {
+      if (err) {
+        console.error('Database query error:', err);
+        return res.status(500).json({ error: err.message });
+      }
+      res.json(result.recordset || []);
+    });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error('Route error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
+
 })
 // End /album-new
-*/
+
+});
+//End Homepage: Yeni
+export default router;
+

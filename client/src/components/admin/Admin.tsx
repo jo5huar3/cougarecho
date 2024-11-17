@@ -277,9 +277,8 @@ const Admin = () => {
                   onClick={() => setShowReportDropdown(!showReportDropdown)}
                   className="bg-[#1ED760] hover:bg-[#1db954] text-black font-semibold py-3 px-6 rounded-full transition-colors duration-200"
                 >
-                  Generate Report
-                </button>
-                {showReportDropdown && (
+                  Generate Reports
+                </button>{showReportDropdown && (
                   <div className="absolute top-full left-0 mt-2 w-48 bg-[#2A2A2A] rounded-lg shadow-lg overflow-hidden z-50">
                     <button
                       onClick={() => handleGenerateReport('song')}
@@ -307,6 +306,12 @@ const Admin = () => {
                 className="bg-[#2A2A2A] hover:bg-[#3A3A3A] text-[#EBE7CD] font-semibold py-3 px-6 rounded-full transition-colors duration-200"
               >
                 Activity Tracking System
+              </button>
+              <button
+                onClick={() => navigate('/makeadmin')}
+                className="bg-[#2A2A2A] hover:bg-[#3A3A3A] text-[#EBE7CD] font-semibold py-3 px-6 rounded-full transition-colors duration-200"
+              >
+                Make Admin
               </button>
             </div>
           </div>

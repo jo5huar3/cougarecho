@@ -47,7 +47,7 @@ const LoginPage = () => {
         console.log(token)
         switch (role_id) {
           case 1:
-            navigate('/listener')
+            navigate('/listener/')
             break;
           case 2:
             navigate('/artist/' + user_id)

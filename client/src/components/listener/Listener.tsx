@@ -1,52 +1,55 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Search, Home, Settings, Menu, PlusCircle, User, Edit2, Loader, X, Music, LogOut, Play } from 'lucide-react';
+import { UserContext } from '../../context/UserContext';
+import axios from '../../api/axios';
 
 interface Album {
-  id: number;
-  title: string;
-  artist: string;
-  imageUrl: string;
+  album_id: number;
+  album_name: string;
+  artist_name: string;
   playCount: number;
   lastPlayed: string;
+  album_cover: string; //File | string | null;
 }
 
 interface UserProfile {
   name: string;
   playlists: number;
+  avatar: string
 }
 
 // Mock API to simulate database calls
 const mockApi = {
-  fetchUserProfile: () => new Promise<UserProfile>(resolve => 
-    setTimeout(() => resolve({ 
-      name: 'John Doe', 
-      playlists: 12 
+  fetchUserProfile: () => new Promise<UserProfile>(resolve =>
+    setTimeout(() => resolve({
+      name: 'John Doe',
+      playlists: 12
     }), 500)
   ),
-  fetchTopAlbums: () => new Promise<Album[]>(resolve => 
+  fetchTopAlbums: () => new Promise<Album[]>(resolve =>
     setTimeout(() => resolve([
-      { 
-        id: 1, 
-        title: 'Hit me hard and soft',
-        artist: 'Billie Eilish',
-        imageUrl: '/api/placeholder/400/400',
+      {
+        album_id: 1,
+        album_name: 'Hit me hard and soft',
+        artist_name: 'Billie Eilish',
+        album_cover: '/api/placeholder/400/400',
         playCount: 1205,
         lastPlayed: '2024-05-01T14:48:00.000Z'
       },
-      { 
-        id: 2, 
-        title: 'Midnights',
-        artist: 'Taylor Swift',
-        imageUrl: '/api/placeholder/400/400',
+      {
+        album_id: 2,
+        album_name: 'Midnights',
+        artist_name: 'Taylor Swift',
+        album_cover: '/api/placeholder/400/400',
         playCount: 986,
         lastPlayed: '2024-04-28T09:32:00.000Z'
       },
-      { 
-        id: 3, 
-        title: 'Dawn FM',
-        artist: 'The Weeknd',
-        imageUrl: '/api/placeholder/400/400',
+      {
+        album_id: 3,
+        album_name: 'Dawn FM',
+        artist_name: 'The Weeknd',
+        album_cover: '/api/placeholder/400/400',
         playCount: 754,
         lastPlayed: '2024-04-25T22:15:00.000Z'
       }
@@ -55,7 +58,8 @@ const mockApi = {
 };
 
 const Listener = () => {
-  const [userProfile, setUserProfile] = useState<UserProfile>({ name: '', playlists: 0 });
+  const { user } = useContext(UserContext)
+  const [userProfile, setUserProfile] = useState<UserProfile>({ name: '', playlists: 0, avatar: "" });
   const [topAlbums, setTopAlbums] = useState<Album[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,31 +70,81 @@ const Listener = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
+
       try {
-        const [profileData, albumsData] = await Promise.all([
-          mockApi.fetchUserProfile(),
-          mockApi.fetchTopAlbums()
-        ]);
-        setUserProfile(profileData);
-        setTopAlbums(albumsData);
+        const response = await axios.get('/listener/' + user.user_id);
+        const profileData = { name: response?.data?.display_name, playlists: response?.data?.playlists }
+        console.log(profileData)
+
+        setUserProfile({ ...userProfile, ...profileData });
+
+        //console.log(topAlbums)
+
       } catch (err) {
         setError('Failed to fetch data. Please try again later.');
         console.error('Error fetching data:', err);
       } finally {
-        setIsLoading(false);
+        //setIsLoading(false);
       }
     };
-
     fetchData();
+  }, []);
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await axios.get('/album/playcount/3');
+        console.log("Get top 3 albums response.data:\n", response.data)
+        setTopAlbums(response?.data);
+
+
+      } catch (error) {
+        console.log("ERROR: ", error)
+      } finally {
+      }
+    }
+    fetchData();
+  }, [])
+
+  /*
+  useEffect(() => {
+    setIsLoading
+    const fetchIMGs = async () => {
+      try {
+        // Fetch album data
+        const albumData = await Promise.all(
+          topAlbums.map(async (alb) => {
+            //const { data } = await axios.get(`/album/` + alb.album_id);
+            const response = await axios.get('/album/' + alb.album_id + '/IMG', {
+              responseType: 'blob',
+            });
+
+            // Convert Blob to Object URL
+            const imageBlobUrl = await URL.createObjectURL(response.data);
+
+            return { ...alb, album_cover: imageBlobUrl };
+          })
+        );
+        //console.log(albumData)
+        setTopAlbums(albumData);
+      } catch (error) {
+        console.error('Error fetching albums:', error);
+      } finally {
+        setIsLoading(false);
+      }
+      fetchIMGs();
+    }
+
+  }, [])*/
+
+  useEffect(() => {
+    setIsLoading(false)
     const searchParams = new URLSearchParams(location.search);
     const query = searchParams.get('q');
     if (query) {
       setSearchValue(query);
     }
-  }, [location]);
+  }, [location])
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -207,7 +261,11 @@ const Listener = () => {
         <div className="bg-[#1A1A1A] rounded-lg p-6 mb-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <div className="w-32 h-32 bg-gray-700 rounded-full mr-6"></div>
+              <div className="w-32 h-32 bg-gray-700 rounded-full mr-6">
+                {userProfile?.avatar && (
+                  <img src={URL.createObjectURL(avatar)} alt="Album Cover" className="w-full h-full object-cover rounded-full" />
+                )}
+              </div>
               <div>
                 <p className="text-sm text-gray-400">Profile</p>
                 <h2 className="text-4xl font-bold">{userProfile.name}</h2>
@@ -226,26 +284,26 @@ const Listener = () => {
             <h3 className="text-xl font-bold">Top Albums</h3>
           </div>
           <div className="grid grid-cols-3 gap-4">
-            {topAlbums.map((album) => (
+            {topAlbums?.map((album) => (
               <div
-                key={album.id}
+                key={album.album_id}
                 className="bg-[#2A2A2A] rounded-lg p-4 transition-all duration-300 hover:bg-[#3A3A3A] cursor-pointer group"
-                onClick={() => handleAlbumClick(album.id)}
+                onClick={() => handleAlbumClick(album.album_id)}
               >
                 <div className="relative">
                   <img
-                    src={album.imageUrl}
-                    alt={`${album.title} by ${album.artist}`}
+                    src={album?.album_cover}
+                    alt={`${album?.album_name} by ${album?.artist_name}`}
                     className="w-full aspect-square object-cover rounded-md mb-3"
                   />
                   <button className="absolute bottom-2 right-2 w-10 h-10 bg-[#1ED760] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
                     <Play className="w-5 h-5 text-black fill-current" />
                   </button>
                 </div>
-                <h4 className="font-semibold text-[#EBE7CD] truncate">{album.title}</h4>
-                <p className="text-sm text-gray-400 truncate">{album.artist}</p>
+                <h4 className="font-semibold text-[#EBE7CD] truncate">{album?.album_name ? album?.album_name : ""}</h4>
+                <p className="text-sm text-gray-400 truncate">{album.artist_name ? album.artist_name : ""}</p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {album.playCount.toLocaleString()} plays
+                  {album.playCount ? album.playCount : 0} plays
                 </p>
               </div>
             ))}

@@ -45,19 +45,7 @@ const UploadPage: React.FC = () => {
       const data = new FormData();
       const album_info = { album_name: albumName, user_id: user.id };
 
-      /*
-      const response = await axios.post(NEW_ALBUM_URL,
-        JSON.stringify({}),
-        {
-          headers: { 'Content-Type': 'application/json' },
-          withCredentials: false
-        }
-      );
 
-
-
-      console.log('Registration API response status:', response.status);
-      */
     } catch (error) {
       console.error('Registration request failed:', error);
     }
@@ -84,23 +72,7 @@ const UploadPage: React.FC = () => {
     }
   };
 
-  const simulateFileUpload = (file: File): Promise<void> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        console.log(`File ${file.name} uploaded to cloud storage.`);
-        resolve();
-      }, 1000);
-    });
-  };
 
-  const simulateDatabaseStore = (albumInfo: AlbumInfo): Promise<void> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        console.log('Album info stored in database:', albumInfo);
-        resolve();
-      }, 1000);
-    });
-  };
 
   const handleUpload = async (e): Promise<void> => {
     e.preventDefault();
@@ -142,13 +114,15 @@ const UploadPage: React.FC = () => {
 
         }
       }
-
-      /*
-  const response = await fetch('http://localhost:8080/api/new1album', {
-    method: 'POST',
-    body: formData,
-  });
-  */
+      setIsUploaded(true);
+      setUploadedAlbum({
+        name: albumName,
+        songCount: songs.length,
+        streams: 0,
+        likesSaves: 0,
+        revenue: 0
+      });
+      setMessage('Album successfully uploaded and stored in the database.');
 
     } catch (err) {
       console.log(err.message);

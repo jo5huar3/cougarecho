@@ -23,7 +23,7 @@ const Artist = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [artistProfile, setArtistProfile] = useState({ artist_id: '', display_name: '', album_count: 0, song_count: 0 });
-  const [latestAlbum, setLatestAlbum] = useState({ name: '', streams: 0, likesSaves: 0 });
+  const [latestAlbum, setLatestAlbum] = useState({ name: '', streams: 0, likeSaves: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchValue, setSearchValue] = useState('');
@@ -31,35 +31,49 @@ const Artist = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
       console.log(user)
       try {
-        const [artistRes, albumData] = await Promise.all([
-          axios.get('/artist/' + user.user_id),
-          mockApi.fetchLatestAlbum()
-        ]);
-        console.log(artistRes?.data)
-        const { display_name, album_count, song_count } = artistRes?.data;
-        const profileData = artistRes?.data;
-        setArtistProfile({ display_name, album_count, song_count });
-        setLatestAlbum(albumData);
+        const response1 = await axios.get('/artist/' + user.user_id);
+        console.log(response1?.data)
+        //const { display_name, album_count, song_count } = response1?.data;
+        const profileData = await response1?.data;
+        setArtistProfile({ ...artistProfile, ...profileData });
       } catch (err) {
         setError('Failed to fetch data. Please try again later.');
         console.error('Error fetching data:', err);
-      } finally {
-        setIsLoading(false);
       }
     };
-
     fetchData();
+    //fetchData2();
 
+    /*
     const searchParams = new URLSearchParams(location.search);
     const query = searchParams.get('q');
     if (query) {
       setSearchValue(query);
     }
-  }, [location]);
+  */
+  }, [user]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await axios.get('/artist/' + user.user_id + '/albumlatest');
+        console.log(response?.data)
+        //const { album_name, album_streams, album_likes } = response?.data;
+        const albumData = await response?.data;
+        setLatestAlbum({ ...latestAlbum, ...albumData })
+      } catch (err) {
+        setError('Failed to fetch data. Please try again later.');
+        console.error('Error fetching data:', err);
+      }
+    }
+    fetchData();
+  }, [user]);
+
+  useEffect(() => {
+    setIsLoading(false)
+  }, [isLoading])
 
   const handleLogout = () => {
     localStorage.removeItem('userToken');
@@ -212,7 +226,7 @@ const Artist = () => {
                 <h4 className="text-2xl font-bold mb-2">{latestAlbum.name}</h4>
                 <div className="space-y-1">
                   <p className="text-sm text-gray-400">Streams: {latestAlbum.streams.toLocaleString()}</p>
-                  <p className="text-sm text-gray-400">Likes/Saves: {latestAlbum.likesSaves.toLocaleString()}</p>
+                  <p className="text-sm text-gray-400">Likes/Saves: {latestAlbum.likeSaves.toLocaleString()}</p>
                 </div>
               </div>
               <button className="bg-[#1ED760] text-black px-4 py-2 rounded-full text-sm hover:bg-[#1DB954] transition-colors">
