@@ -1,24 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Home, Settings, Play, Edit2, Loader, LogOut, X } from 'lucide-react';
-import Sidebar from '../../components/sidebar/Sidebar';
+import { Search, Home, Settings, Menu, PlusCircle, User, Play, Edit2, Loader, X, Music, LogOut } from 'lucide-react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Mock API
 const mockApi = {
-  fetchAdminProfile: () =>
-    new Promise((resolve) => setTimeout(() => resolve({ name: 'anailemone', playlists: 70 }), 500)),
-  fetchIssues: () =>
-    new Promise((resolve) =>
-      setTimeout(() =>
-        resolve([
-          { id: 1, name: 'Skinny', flags: 10 },
-          { id: 2, name: 'Lunch', flags: 5 },
-        ]),
-        500
-      )
-    ),
-  removeSong: (songId) => new Promise((resolve) => setTimeout(() => resolve(), 500)),
+  fetchAdminProfile: () => new Promise(resolve => 
+    setTimeout(() => resolve({ name: 'anailemone', playlists: 70 }), 500)
+  ),
+  fetchIssues: () => new Promise(resolve => 
+    setTimeout(() => resolve([
+      { id: 1, name: 'Skinny', flags: 10 },
+      { id: 2, name: 'Lunch', flags: 5 },
+    ]), 500)
+  ),
+  removeSong: (songId) => new Promise(resolve => 
+    setTimeout(() => resolve(), 500)
+  ),
 };
 
 // Modal Component
@@ -37,10 +35,16 @@ const Modal = ({ isOpen, onClose, onConfirm, songName }) => {
         <p className="text-[#EBE7CD] mb-2">Are you sure you want to remove "{songName}"?</p>
         <p className="text-sm text-gray-400 mb-6">This action will notify the artist.</p>
         <div className="flex justify-end space-x-4">
-          <button onClick={onClose} className="px-4 py-2 bg-gray-600 text-[#EBE7CD] rounded hover:bg-gray-700 transition-colors">
+          <button 
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-600 text-[#EBE7CD] rounded hover:bg-gray-700 transition-colors"
+          >
             Cancel
           </button>
-          <button onClick={onConfirm} className="px-4 py-2 bg-red-600 text-[#EBE7CD] rounded hover:bg-red-700 transition-colors">
+          <button 
+            onClick={onConfirm}
+            className="px-4 py-2 bg-red-600 text-[#EBE7CD] rounded hover:bg-red-700 transition-colors"
+          >
             Remove
           </button>
         </div>
@@ -59,6 +63,7 @@ const Admin = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [songToRemove, setSongToRemove] = useState(null);
   const [searchValue, setSearchValue] = useState('');
+  const [isMenuExpanded, setIsMenuExpanded] = useState(false);
   const [showReportDropdown, setShowReportDropdown] = useState(false);
 
   useEffect(() => {
@@ -66,7 +71,10 @@ const Admin = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const [profileData, issuesData] = await Promise.all([mockApi.fetchAdminProfile(), mockApi.fetchIssues()]);
+        const [profileData, issuesData] = await Promise.all([
+          mockApi.fetchAdminProfile(),
+          mockApi.fetchIssues()
+        ]);
         setAdminProfile(profileData);
         setIssues(issuesData);
       } catch (err) {
@@ -80,7 +88,7 @@ const Admin = () => {
     fetchData();
 
     const searchParams = new URLSearchParams(location.search);
-    const query = searchParams.get('keyword');
+    const query = searchParams.get('q');
     if (query) {
       setSearchValue(query);
     }
@@ -100,12 +108,12 @@ const Admin = () => {
   const handleLogout = () => {
     localStorage.removeItem('userToken');
     sessionStorage.clear();
-
-    navigate('/#', {
-      state: {
+    
+    navigate('/#', { 
+      state: { 
         showLogoutMessage: true,
-        message: "You've been logged out successfully",
-      },
+        message: "You've been logged out successfully" 
+      } 
     });
   };
 
@@ -126,7 +134,7 @@ const Admin = () => {
     if (songToRemove) {
       try {
         await mockApi.removeSong(songToRemove.id);
-        setIssues(issues.filter((issue) => issue.id !== songToRemove.id));
+        setIssues(issues.filter(issue => issue.id !== songToRemove.id));
         setModalOpen(false);
         setSongToRemove(null);
       } catch (err) {
@@ -140,22 +148,16 @@ const Admin = () => {
     const value = e.target.value;
     setSearchValue(value);
     if (value.length > 0) {
-      navigate(`/search?keyword=${encodeURIComponent(value)}`, { replace: true });
+      navigate(`/search?q=${encodeURIComponent(value)}`, { replace: true });
     } else {
       navigate('/admin', { replace: true });
     }
   };
 
   const handleGenerateReport = (type) => {
+    console.log(`Generating ${type} report...`);
+    // Add your report generation logic here
     setShowReportDropdown(false);
-    
-    if (type === 'song') {
-      navigate('/song-rating');
-    } else if (type === 'user') {
-      navigate('/user-rating');
-    } else if (type === 'artist') {
-      navigate('/artist-rating');
-    }
   };
 
   if (isLoading) {
@@ -177,7 +179,52 @@ const Admin = () => {
   return (
     <div className="bg-[#121212] text-[#EBE7CD] min-h-screen flex font-sans">
       {/* Sidebar */}
-      <Sidebar handleCreatePlaylist={handleCreatePlaylist} handleLogout={handleLogout} />
+      <div className={`w-16 flex flex-col items-center py-4 bg-black border-r border-gray-800 transition-all duration-300 ease-in-out ${isMenuExpanded ? 'w-64' : 'w-16'}`}>
+        <div className="flex flex-col items-center space-y-4 mb-8">
+          <button onClick={() => setIsMenuExpanded(!isMenuExpanded)} className="text-[#1ED760] hover:text-white" aria-label="Menu">
+            <Menu className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="flex-grow"></div>
+        <div className="mt-auto flex flex-col items-center space-y-4 mb-4">
+          <button onClick={handleCreatePlaylist} className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-[#EBE7CD] hover:text-white" aria-label="Add">
+            <PlusCircle className="w-6 h-6" />
+          </button>
+          <Link to="/useredit" aria-label="User Profile" className="text-[#1ED760] hover:text-white">
+            <User className="w-6 h-6" />
+          </Link>
+        </div>
+      </div>
+
+      {/* Expandable Menu */}
+      {isMenuExpanded && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50">
+          <div className="bg-[#121212] w-64 h-full p-4">
+            <button onClick={() => setIsMenuExpanded(false)} className="mb-8 text-[#1ED760]">
+              <X className="w-6 h-6" />
+            </button>
+            <nav>
+              <ul className="space-y-4">
+                <li><Link to="/homepage" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Home className="w-5 h-5 mr-3" /> Home</Link></li>
+                <li><Link to="/search" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Search className="w-5 h-5 mr-3" /> Search</Link></li>
+                <li><Link to="/library" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Music className="w-5 h-5 mr-3" /> Your Library</Link></li>
+                <li><button onClick={handleCreatePlaylist} className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><PlusCircle className="w-5 h-5 mr-3" /> Create Playlist</button></li>
+              </ul>
+            </nav>
+            <div className="mt-auto">
+              <Link to="/useredit" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center mt-4">
+                <User className="w-5 h-5 mr-3" /> Profile
+              </Link>
+              <button 
+                onClick={handleLogout}
+                className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center mt-4 w-full"
+              >
+                <LogOut className="w-5 h-5 mr-3" /> Log out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main content */}
       <div className="flex-1 flex flex-col p-8">
@@ -222,7 +269,7 @@ const Admin = () => {
                 <Edit2 className="w-5 h-5" />
               </Link>
             </div>
-
+            
             {/* Buttons section */}
             <div className="flex space-x-4 mt-4">
               <div className="relative report-dropdown">
@@ -281,7 +328,7 @@ const Admin = () => {
                   </div>
                   <div className="flex items-center">
                     <span className="mr-4 text-sm text-gray-400">{issue.flags} Flags</span>
-                    <button
+                    <button 
                       className="text-gray-400 text-sm hover:text-white"
                       onClick={() => handleRemoveSong(issue.id, issue.name)}
                     >
@@ -296,7 +343,12 @@ const Admin = () => {
       </div>
 
       {/* Confirmation Modal */}
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} onConfirm={confirmRemoveSong} songName={songToRemove?.name} />
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onConfirm={confirmRemoveSong}
+        songName={songToRemove?.name}
+      />
     </div>
   );
 };

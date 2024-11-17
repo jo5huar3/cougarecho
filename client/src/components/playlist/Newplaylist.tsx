@@ -1,25 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-
-import { Search, Home, Settings, PlusCircle, User, X, Music, LogOut, Image as ImageIcon } from 'lucide-react';
-import Sidebar from '../../components/sidebar/Sidebar';  // Import the Sidebar component
-
-// Mock API with focused song database
-const mockApi = {
-  searchSongs: (query) => {
-    const allSongs = [
-      { id: 1, title: 'Song 1', artist: 'Artist 1', duration: 180 },
-      { id: 2, title: 'Song 2', artist: 'Artist 2', duration: 210 },
-      { id: 3, title: 'New Song', artist: 'New Artist', duration: 260 },
-      { id: 4, title: 'Another Track', artist: 'Cool Band', duration: 175 },
-      { id: 5, title: 'Great Song', artist: 'Artist 3', duration: 195 }
-    ];
-
-    const filteredSongs = allSongs.filter(song => 
-      song.title.toLowerCase().includes(query.toLowerCase()) ||
-      song.artist.toLowerCase().includes(query.toLowerCase())
-    );
-
+import { Search, Home, Settings, Menu, PlusCircle, User, Play, Edit2, X, Music, LogOut, Image as ImageIcon } from 'lucide-react';
+import axios from '../../api/axios';
 
 const apiRoutes = {
   test: '/api/test',                                    // Add /api prefix
@@ -83,7 +65,6 @@ const CreatePlaylistPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isMenuExpanded, setIsMenuExpanded] = useState(false);
-
   const [playlistTitle, setPlaylistTitle] = useState('');
   const [playlistImage, setPlaylistImage] = useState(null);
   const [selectedSongs, setSelectedSongs] = useState([]);
@@ -167,31 +148,6 @@ const CreatePlaylistPage = () => {
     checkAuth();
   }, [navigate]);
 
-
-  const handleSearchSongs = async (query) => {
-    setSearchQuery(query.trim());
-    if (query.trim().length > 0) {
-      try {
-        console.log(`Searching songs with query: ${query}`);
-        const results = await mockApi.searchSongs(query);
-        console.log('Filtered Songs:', results);
-
-        // Filter out songs that are already in the playlist
-        const filteredResults = results.filter(
-          result => !selectedSongs.some(selected => selected.id === result.id)
-        );
-
-        console.log('Search Results after filtering:', filteredResults);
-        setSearchResults(filteredResults);
-
-      } catch (err) {
-        console.error('Error searching songs:', err);
-        setSearchResults([]);
-      }
-    } else {
-      console.log('Query too short');
-      setSearchResults([]);
-
   // Add cleanup for search API calls
   useEffect(() => {
     const abortController = new AbortController();
@@ -247,7 +203,6 @@ const CreatePlaylistPage = () => {
       if (error && error.includes('title')) {
         setError('');
       }
-
     }
   };
 
@@ -487,8 +442,6 @@ const CreatePlaylistPage = () => {
   return (
     <div className="bg-[#121212] text-[#EBE7CD] min-h-screen flex font-sans">
       {/* Sidebar */}
-      <Sidebar handleCreatePlaylist={handleCreatePlaylist} handleLogout={handleLogout} />
-
       <div className={`w-16 flex flex-col items-center py-4 bg-black border-r border-gray-800 transition-all duration-300 ease-in-out ${isMenuExpanded ? 'w-64' : 'w-16'}`}>
         <div className="flex flex-col items-center space-y-4 mb-8">
           <button 
@@ -572,7 +525,6 @@ const CreatePlaylistPage = () => {
           </div>
         </div>
       )}
-
 
       {/* Main content */}
       <div className="flex-1 flex flex-col p-8">
@@ -751,6 +703,5 @@ const CreatePlaylistPage = () => {
     </div>
   );
 };
-
 
 export default CreatePlaylistPage;

@@ -1,13 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-
-import { Search, Home, Settings } from 'lucide-react';
-import Sidebar from '../../components/sidebar/Sidebar';
-
-const LibraryPage: React.FC = () => {
-  const [accountType, setAccountType] = useState('listener');
-  const [searchValue, setSearchValue] = useState('');
-
 import { Search, Home, Settings, Menu, PlusCircle, User, Play, X, Music, LogOut } from 'lucide-react';
 import axios from '../../api/axios';
 
@@ -25,7 +17,6 @@ const LibraryPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
-
   const navigate = useNavigate();
 
   // Fetch user playlists on component mount
@@ -103,13 +94,6 @@ const LibraryPage: React.FC = () => {
     navigate('/login');
   };
 
-  const handleSearchChange = (e) => {
-    const value = e.target.value;
-    setSearchValue(value);
-    if (value.length > 0) {
-      navigate(`/search?keyword=${encodeURIComponent(value)}`, { replace: true });
-    }
-  };
   if (isLoading) {
     return (
       <div className="bg-[#121212] text-[#EBE7CD] min-h-screen flex items-center justify-center">
@@ -121,8 +105,6 @@ const LibraryPage: React.FC = () => {
   return (
     <div className="bg-[#121212] text-[#EBE7CD] min-h-screen flex font-sans">
       {/* Sidebar */}
-      <Sidebar handleCreatePlaylist={handleCreatePlaylist} handleLogout={handleLogout} />
-
       <div className={`w-16 flex flex-col items-center py-4 bg-black border-r border-gray-800 transition-all duration-300 ease-in-out ${isMenuExpanded ? 'w-64' : 'w-16'}`}>
         <div className="flex flex-col items-center space-y-4 mb-8">
           <button 
@@ -210,34 +192,6 @@ const LibraryPage: React.FC = () => {
       {/* Main content */}
       <div className="flex-1 flex flex-col p-8 overflow-y-auto">
         {/* Top bar */}
-
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex-1 max-w-xl">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="What do you want to listen to?"
-                className="w-full bg-[#2A2A2A] rounded-full py-2 pl-10 pr-4 text-sm text-[#EBE7CD] focus:outline-none focus:ring-2 focus:ring-white"
-                value={searchValue}
-                onChange={handleSearchChange}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && searchValue.trim() !== '') {
-                    navigate(`/search?keyword=${encodeURIComponent(searchValue)}`, { replace: true });
-                  }
-                }}
-              />
-            </div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Link to="/homepage" className="text-[#1ED760] hover:text-white">
-              <Home className="w-6 h-6" />
-            </Link>
-            <Link to="/useredit" className="text-[#1ED760] hover:text-white">
-              <Settings className="w-6 h-6" />
-            </Link>
-          </div>
-
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">My Library</h1>
           <button 

@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import axios from '../../api/axios';
 import { UserContext } from '../../context/UserContext';
 const NEW_ALBUM_URL = '/newalbum';
-
 interface UploadedAlbum {
   name: string;
   songCount: number;
@@ -13,8 +12,13 @@ interface UploadedAlbum {
   revenue: number;
 }
 
-const ALLOWED_IMG_TYPES = ['image/jpeg', 'image/png'];
-const ALLOWED_AUDIO_TYPES = ['audio/mpeg'];
+interface AlbumInfo {
+  title: string;
+  coverImage: File | null;
+  songs: string[];
+}
+const ALLOWED_IMG_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
+const ALLOWED_AUDIO_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 
 const UploadPage: React.FC = () => {
   const { user } = useContext(UserContext);
@@ -29,14 +33,27 @@ const UploadPage: React.FC = () => {
     songCount: 0,
     streams: 0,
     likesSaves: 0,
-    revenue: 0,
+    revenue: 0
   });
-
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
-  // Upload album cover image
+  const handleCreatePlaylist = async (e) => {
+    e.preventDefault();
+    try {
+      console.log('Sending album');
+      const data = new FormData();
+      const album_info = { album_name: albumName, user_id: user.id };
+
+
+    } catch (error) {
+      console.error('Registration request failed:', error);
+    }
+    console.log("Create new playlist");
+  };
+  // Upload album image
   const handleAlbumCoverUpload = (event: React.ChangeEvent<HTMLInputElement>): void => {
+
     const files = event.target?.files?.[0];
     if (files && ALLOWED_IMG_TYPES.includes(files.type)) {
       setAlbumCover(files);
@@ -44,30 +61,32 @@ const UploadPage: React.FC = () => {
       setMessage('Please upload a valid image file.');
     }
   };
-
-  // Upload MP3 files for the album
   const handleSongUpload = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const files = event?.target?.files;
     if (files) {
-      const mp3Files = Array.from(files).filter((file) => file.type === 'audio/mpeg');
-      if (mp3Files.length !== files.length) {
+      const mp3Files = Array.from(files).filter(file => file);
+      if (mp3Files.length != files.length) {
         setMessage('Please upload only MP3 files.');
       }
-      setSongs((prevSongs) => [...prevSongs, ...mp3Files]);
+      setSongs(prevSongs => [...prevSongs, ...mp3Files]);
     }
   };
 
+
+
   const handleUpload = async (e): Promise<void> => {
     e.preventDefault();
-    console.log('user_id: ', user.user_id);
+    console.log("user_id: ", user.user_id)
 
     try {
-      // Upload album information
-      const albFormData = new FormData();
-      albFormData.append('albumName', albumName);
-      albFormData.append('user_id', user.user_id);
-      if (albumCover) albFormData.append('img', albumCover);
+      // Simulate API call to upload files and store in database
+      // Add album into DB first
+      // Upload Name, ArtistID, cover img, and get returned album_id.
 
+      const albFormData = new FormData();
+      albFormData.append('albumName', albumName)
+      albFormData.append('user_id', user.user_id)
+      albFormData.append('img', albumCover)
       const alb_response = await axios.post('/album-insert', albFormData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -75,49 +94,76 @@ const UploadPage: React.FC = () => {
       });
 
       const album_id = alb_response?.data?.album_id;
-      console.log('album_id: ', album_id);
-
+      console.log("album_id: ", album_id)
       if (album_id) {
-        // Upload each song in the album
         for (const song_ of songs) {
           try {
             const formData = new FormData();
-            formData.append('album_id', album_id);
-            formData.append('user_id', user.user_id);
+            formData.append('album_id', album_id)
+            formData.append('user_id', user.user_id)
             formData.append('song', song_);
-
-            await axios.post('/song-insert', formData, {
-              headers: { 'Content-Type': 'multipart/form-data' },
+            const response = await axios.post('/song-insert', formData, {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
             });
-          } catch (songError) {
-            console.error('Song upload error:', songError);
-            if (songError.response && songError.response.status === 403) {
-              alert(`ERROR: ${songError.response.data.error}`);
-              return;
-            }
-            setMessage('Error uploading one or more songs. Please try again.');
+          } catch (err) {
+            console.log(err.message)
           }
+          //console.log(response.status.toString)
+
         }
       }
-
       setIsUploaded(true);
       setUploadedAlbum({
         name: albumName,
         songCount: songs.length,
         streams: 0,
         likesSaves: 0,
-        revenue: 0,
+        revenue: 0
       });
-      alert('Album successfully uploaded.');
+      setMessage('Album successfully uploaded and stored in the database.');
 
-    } catch (albumError) {
-      console.error('Album upload error:', albumError);
-      if (albumError.response && albumError.response.status === 403) {
-        alert(`ERROR: ${albumError.response.data.error}`);
-      } else {
-        alert('Error uploading album. Please try again.');
-      }
+    } catch (err) {
+      console.log(err.message);
     }
+    /*
+    if (songs.length === 0) {
+      setMessage('Please select at least one MP3 file to upload.');
+      return;
+    }
+    console.log('Upload started. This may take a while...');
+
+    try {
+      // Simulate API call to upload files and store in database
+      const formData = new FormData();
+      for (let i = 0; i < songs.length; i++) {
+        formData.append('song', songs[i])
+      }
+      if (albumCover?.size) {
+        formData.append('img', albumCover)
+        formData.append('album_name', albumName)
+        const response = await axios.post('/newalbum', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        console.log('Successfull post', albumCover)
+
+        setIsUploaded(true);
+        setUploadedAlbum({
+          name: albumName,
+          songCount: songs.length,
+          streams: 0,
+          likesSaves: 0,
+          revenue: 0
+        });
+        setMessage('Album successfully uploaded and stored in the database.');
+      }
+    } catch (error) {
+      setMessage('Error uploading album. Please try again.');
+      console.error('Upload error:', error);
+    }*/
   };
 
   return (
@@ -131,8 +177,8 @@ const UploadPage: React.FC = () => {
         </div>
         <div className="flex-grow"></div>
         <div className="mt-auto flex flex-col items-center space-y-4 mb-4">
-          <button onClick={() => fileInputRef.current?.click()} className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-[#EBE7CD] hover:text-white" aria-label="Upload">
-            <Upload className="w-6 h-6" />
+          <button onClick={handleCreatePlaylist} className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-[#EBE7CD] hover:text-white" aria-label="Add">
+            <PlusCircle className="w-6 h-6" />
           </button>
           <Link to="/useredit" aria-label="User Profile" className="text-[#1ED760] hover:text-white">
             <User className="w-6 h-6" />
@@ -152,6 +198,7 @@ const UploadPage: React.FC = () => {
                 <li><Link to="/homepage" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Home className="w-5 h-5 mr-3" /> Home</Link></li>
                 <li><Link to="/search" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Search className="w-5 h-5 mr-3" /> Search</Link></li>
                 <li><Link to="/userlibrary" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Music className="w-5 h-5 mr-3" /> Your Library</Link></li>
+                <li><button onClick={handleCreatePlaylist} className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><PlusCircle className="w-5 h-5 mr-3" /> Create Playlist</button></li>
               </ul>
             </nav>
             <div className="mt-auto">
@@ -168,9 +215,33 @@ const UploadPage: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
+        {/* Top bar */}
+        <div className="bg-[#121212] p-4 flex justify-between items-center">
+          <div className="flex-1 max-w-xl">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search by song or artist"
+                className="w-full bg-[#2A2A2A] rounded-full py-2 pl-10 pr-4 text-sm text-[#EBE7CD]"
+              />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            </div>
+          </div>
+          <div className="flex items-center space-x-4">
+            <Link to="/home" className="text-[#1ED760] hover:text-white">
+              <Home className="w-6 h-6" />
+            </Link>
+            <Link to="/settings" className="text-[#1ED760] hover:text-white">
+              <Settings className="w-6 h-6" />
+            </Link>
+          </div>
+        </div>
+
+        {/* Upload Content or Uploaded Album View */}
         <div className="flex-1 p-8">
           <div className="bg-[#1A1A1A] rounded-lg p-6 max-w-2xl mx-auto">
             {!isUploaded ? (
+              // Upload Form
               <>
                 <div className="flex items-start space-x-6 mb-6">
                   <div
@@ -239,6 +310,7 @@ const UploadPage: React.FC = () => {
                 </button>
               </>
             ) : (
+              // Uploaded Album View
               <>
                 <div className="mb-8 flex items-center justify-between">
                   <div className="flex items-center">
