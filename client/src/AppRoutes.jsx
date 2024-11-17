@@ -17,6 +17,7 @@ import ArtistProfile from './components/artistpage/Artistprofile';
 import Player from './components/songplayer/Player';
 import Tracking from './components/admin/Tracking';
 import Newtrack from './components/admin/Newtrack';
+import Makeadmin from './components/admin/Makeadmin';
 import SongRating from './components/report/Songrating';
 import UserRating from './components/report/Userrating';
 import ArtistRating from './components/report/Artistrating';
@@ -153,6 +154,10 @@ export const AdminRoutes = [
   {
     path: '/admin',
     element: <Admin />
+  },
+  {
+    path: '/makeadmin',
+    element: <Makeadmin />
   },
 
 

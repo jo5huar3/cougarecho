@@ -615,6 +615,59 @@ router.get('/artist-rating', async (req, res) => {
   }
 });
 
+// Begin /create-admin
+router.post('/create-admin', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    // Validate inputs
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required.' });
+    }
+
+    // Hash the password using bcrypt
+    const password_hash = await bcrypt.hash(password, 4);
+    
+    // Define SQL query to insert new admin user into the database
+    const myQuery = `
+          INSERT INTO [User] (username, password_hash, created_at, role_id)
+          OUTPUT inserted.user_id, inserted.username, inserted.role_id
+          VALUES (@username, @password_hash, GETDATE(), @role_id)`;
+    
+    // Create SQL request
+    const request = new sql.Request();
+    request.input('username', sql.NVarChar, username);
+    request.input('password_hash', sql.NVarChar, password_hash);
+    request.input('role_id', sql.Int, 3); // Role ID 3 for admin
+
+    // Execute the query
+    const result = await request.query(myQuery);
+    
+    if (result?.rowsAffected[0] === 1) {
+      // Generate a JWT token for the newly created admin user
+      const token = jwt.sign(
+        {
+          user_id: result.recordset[0].user_id,
+          username: result.recordset[0].username,
+          role_id: result.recordset[0].role_id,
+        },
+        SECRET_KEY,
+        { expiresIn: '1h' }
+      );
+
+      // Respond with the JWT token
+      res.json({ token });
+    } else {
+      res.status(500).json({ error: "Failed to create admin account. Database did not return expected output." });
+    }
+  } catch (error) {
+    // Handle errors and send response with error message
+    res.status(500).json({ error: error.message });
+  }
+});
+// End /create-admin
+
+
 //End Thinh Bui
 
 //Homepage: Yeni
