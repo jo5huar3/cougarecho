@@ -8,9 +8,9 @@ interface Album {
   album_id: number;
   album_name: string;
   artist_name: string;
-  album_cover: string;
   playCount: number;
   lastPlayed: string;
+  album_cover: string; //File | string | null;
 }
 
 interface UserProfile {
@@ -69,16 +69,34 @@ const Listener = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+
       try {
         const response = await axios.get('/listener/' + user.user_id);
         const profileData = { name: response?.data?.display_name, playlists: response?.data?.playlists }
         console.log(profileData)
-        setUserProfile(profileData);
+
+        setUserProfile({ ...userProfile, ...profileData });
 
         const response2 = await axios.get('/album/playcount/3');
+
         const [albumsData] = [response2?.data[0], response2?.data[1], response2?.data[2]]
-        //console.log(response2?.data)
-        setTopAlbums(response2?.data);
+        console.log(response2.data.length)
+        console.log(response2?.data)
+        setTopAlbums([{ ...topAlbums, ...response2.data }]);
+        topAlbums.forEach(async (alb) => {
+          const response_ = await axios.get('/album/' + alb.album_id + '/IMG', {
+            responseType: 'blob'
+          });
+          const alb_BLOB = new Blob([response_?.data], { type: 'application/jpeg' })
+          const imageUrl = URL.createObjectURL(alb_BLOB);
+          setTopAlbums((prev) =>
+            prev.map((u) =>
+              u.album_id == alb.album_id ? { ...u, album_cover: imageUrl } : u // Update image only for the matching user
+            )
+          );
+        })
+        //console.log(topAlbums)
+
       } catch (err) {
         setError('Failed to fetch data. Please try again later.');
         console.error('Error fetching data:', err);
@@ -230,7 +248,7 @@ const Listener = () => {
             <h3 className="text-xl font-bold">Top Albums</h3>
           </div>
           <div className="grid grid-cols-3 gap-4">
-            {topAlbums.map((album) => (
+            {topAlbums?.map((album) => (
               <div
                 key={album.album_id}
                 className="bg-[#2A2A2A] rounded-lg p-4 transition-all duration-300 hover:bg-[#3A3A3A] cursor-pointer group"
@@ -249,7 +267,7 @@ const Listener = () => {
                 <h4 className="font-semibold text-[#EBE7CD] truncate">{album.album_name}</h4>
                 <p className="text-sm text-gray-400 truncate">{album.artist_name}</p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {album.playCount.toLocaleString()} plays
+                  {album.playCount ? album.playCount : 0} plays
                 </p>
               </div>
             ))}

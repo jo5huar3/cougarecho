@@ -36,6 +36,19 @@ const UploadPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
+  const handleCreatePlaylist = async (e) => {
+    e.preventDefault();
+    try {
+      console.log('Sending album');
+      const data = new FormData();
+      const album_info = { album_name: albumName, user_id: user.id };
+
+
+    } catch (error) {
+      console.error('Registration request failed:', error);
+    }
+    console.log("Create new playlist");
+  };
   // Upload album image
   const handleAlbumCoverUpload = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const file = event.target.files?.[0];
@@ -50,17 +63,17 @@ const UploadPage: React.FC = () => {
   const handleSongUpload = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const files = event.target.files;
     if (files) {
-      const mp3Files = Array.from(files).filter(file => ALLOWED_AUDIO_TYPES.includes(file.type));
-      if (mp3Files.length !== files.length) {
-        alert('Please upload only MP3 files.');
-      } else {
-        setSongs(prevSongs => [...prevSongs, ...mp3Files]);
+      const mp3Files = Array.from(files).filter(file => file);
+      if (mp3Files.length != files.length) {
+        setMessage('Please upload only MP3 files.');
       }
+      setSongs(prevSongs => [...prevSongs, ...mp3Files]);
     }
   };
 
-  // Handle album and song upload
-  const handleUpload = async (e: React.FormEvent): Promise<void> => {
+
+
+  const handleUpload = async (e): Promise<void> => {
     e.preventDefault();
 
     if (!albumName || !albumCover || songs.length === 0) {
@@ -92,14 +105,48 @@ const UploadPage: React.FC = () => {
             await axios.post('/song-insert', songFormData, {
               headers: { 'Content-Type': 'multipart/form-data' }
             });
-          } catch (songError) {
-            console.error('Song upload error:', songError);
-            if (songError.response && songError.response.status === 403) {
-              alert(`ERROR: ${songError.response.data.error}`);
-              return;
-            }
+          } catch (err) {
+            console.log(err.message)
           }
+          //console.log(response.status.toString)
+
         }
+      }
+      setIsUploaded(true);
+      setUploadedAlbum({
+        name: albumName,
+        songCount: songs.length,
+        streams: 0,
+        likesSaves: 0,
+        revenue: 0
+      });
+      setMessage('Album successfully uploaded and stored in the database.');
+
+    } catch (err) {
+      console.log(err.message);
+    }
+    /*
+    if (songs.length === 0) {
+      setMessage('Please select at least one MP3 file to upload.');
+      return;
+    }
+    console.log('Upload started. This may take a while...');
+
+    try {
+      // Simulate API call to upload files and store in database
+      const formData = new FormData();
+      for (let i = 0; i < songs.length; i++) {
+        formData.append('song', songs[i])
+      }
+      if (albumCover?.size) {
+        formData.append('img', albumCover)
+        formData.append('album_name', albumName)
+        const response = await axios.post('/newalbum', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        console.log('Successfull post', albumCover)
 
         setIsUploaded(true);
         setUploadedAlbum({
