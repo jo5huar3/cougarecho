@@ -17,6 +17,7 @@ import ArtistProfile from './components/artistpage/Artistprofile';
 import Player from './components/songplayer/Player';
 import Tracking from './components/admin/Tracking';
 import Newtrack from './components/admin/Newtrack';
+import Makeadmin from './components/admin/Makeadmin';
 
 
 export const PublicRoutes = [
@@ -54,7 +55,7 @@ export const PublicRoutes = [
   },
 
   {
-    path: '/album',
+    path: '/album/:id',
     element: <AlbumPage />
   },
   {
@@ -103,7 +104,21 @@ export const PublicRoutes = [
     element: <Homepage />
   },
 
+  
+  {
+    path: '/admin',
+    element: <Admin />
+  },
 
+  {
+    path: '/makeadmin',
+    element: <Makeadmin />
+  },
+
+  {
+    path: '/newalbum',
+    element: <Newalbum />
+  },
 
 ];
 export const ListenerRoutes = [
@@ -127,17 +142,10 @@ export const ArtistRoutes = [
   },
 
 
-  {
-    path: '/newalbum',
-    element: <Newalbum />
-  },
 ]
 export const AdminRoutes = [
 
-  {
-    path: '/admin',
-    element: <Admin />
-  },
+
 
 
 ]

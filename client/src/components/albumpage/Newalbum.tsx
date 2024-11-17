@@ -3,7 +3,7 @@ import { Search, Home, Settings, Menu, User, PlusCircle, X, Music, LogOut, Uploa
 import { Link } from 'react-router-dom';
 import axios from '../../api/axios';
 import { UserContext } from '../../context/UserContext';
-const NEW_ALBUM_URL = '/newalbum';
+
 interface UploadedAlbum {
   name: string;
   songCount: number;
@@ -12,11 +12,11 @@ interface UploadedAlbum {
   revenue: number;
 }
 
-interface AlbumInfo {
-  title: string;
-  coverImage: File | null;
-  songs: string[];
+interface Song {
+  file: File;
+  name: string;
 }
+
 const ALLOWED_IMG_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 const ALLOWED_AUDIO_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 
@@ -25,9 +25,12 @@ const UploadPage: React.FC = () => {
   const [isMenuExpanded, setIsMenuExpanded] = useState<boolean>(false);
   const [albumName, setAlbumName] = useState<string>('');
   const [albumCover, setAlbumCover] = useState<File | null>(null);
-  const [songs, setSongs] = useState<File[]>([]);
+  const [songs, setSongs] = useState<Song[]>([]);
   const [message, setMessage] = useState<string>('');
   const [isUploaded, setIsUploaded] = useState<boolean>(false);
+  const [showSongModal, setShowSongModal] = useState(false);
+  const [currentSongFile, setCurrentSongFile] = useState<File | null>(null);
+  const [songName, setSongName] = useState('');
   const [uploadedAlbum, setUploadedAlbum] = useState<UploadedAlbum>({
     name: '',
     songCount: 0,
@@ -35,25 +38,23 @@ const UploadPage: React.FC = () => {
     likesSaves: 0,
     revenue: 0
   });
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
-  const handleCreatePlaylist = async (e) => {
+  const handleCreatePlaylist = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       console.log('Sending album');
       const data = new FormData();
       const album_info = { album_name: albumName, user_id: user.id };
 
-
     } catch (error) {
       console.error('Registration request failed:', error);
     }
-    console.log("Create new playlist");
   };
-  // Upload album image
-  const handleAlbumCoverUpload = (event: React.ChangeEvent<HTMLInputElement>): void => {
 
+  const handleAlbumCoverUpload = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const files = event.target?.files?.[0];
     if (files && ALLOWED_IMG_TYPES.includes(files.type)) {
       setAlbumCover(files);
@@ -61,28 +62,30 @@ const UploadPage: React.FC = () => {
       setMessage('Please upload a valid image file.');
     }
   };
+
   const handleSongUpload = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const files = event?.target?.files;
-    if (files) {
-      const mp3Files = Array.from(files).filter(file => file);
-      if (mp3Files.length != files.length) {
-        setMessage('Please upload only MP3 files.');
-      }
-      setSongs(prevSongs => [...prevSongs, ...mp3Files]);
+    if (files && files[0]) {
+      setCurrentSongFile(files[0]);
+      setShowSongModal(true);
+    }
+  };
+
+  const handleAddSong = () => {
+    if (currentSongFile && songName.trim()) {
+      setSongs(prevSongs => [...prevSongs, { file: currentSongFile, name: songName }]);
+      setCurrentSongFile(null);
+      setSongName('');
+      setShowSongModal(false);
     }
   };
 
 
-
-  const handleUpload = async (e): Promise<void> => {
+  const handleUpload = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     console.log("user_id: ", user.user_id)
 
     try {
-      // Simulate API call to upload files and store in database
-      // Add album into DB first
-      // Upload Name, ArtistID, cover img, and get returned album_id.
-
       const albFormData = new FormData();
       albFormData.append('albumName', albumName)
       albFormData.append('user_id', user.user_id)
@@ -96,12 +99,13 @@ const UploadPage: React.FC = () => {
       const album_id = alb_response?.data?.album_id;
       console.log("album_id: ", album_id)
       if (album_id) {
-        for (const song_ of songs) {
+        for (const song of songs) {
           try {
             const formData = new FormData();
             formData.append('album_id', album_id)
             formData.append('user_id', user.user_id)
-            formData.append('song', song_);
+            formData.append('song', song.file);
+            formData.append('song_name', song.name);
             const response = await axios.post('/song-insert', formData, {
               headers: {
                 'Content-Type': 'multipart/form-data',
@@ -110,8 +114,6 @@ const UploadPage: React.FC = () => {
           } catch (err) {
             console.log(err.message)
           }
-          //console.log(response.status.toString)
-
         }
       }
       setIsUploaded(true);
@@ -127,43 +129,6 @@ const UploadPage: React.FC = () => {
     } catch (err) {
       console.log(err.message);
     }
-    /*
-    if (songs.length === 0) {
-      setMessage('Please select at least one MP3 file to upload.');
-      return;
-    }
-    console.log('Upload started. This may take a while...');
-
-    try {
-      // Simulate API call to upload files and store in database
-      const formData = new FormData();
-      for (let i = 0; i < songs.length; i++) {
-        formData.append('song', songs[i])
-      }
-      if (albumCover?.size) {
-        formData.append('img', albumCover)
-        formData.append('album_name', albumName)
-        const response = await axios.post('/newalbum', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-        console.log('Successfull post', albumCover)
-
-        setIsUploaded(true);
-        setUploadedAlbum({
-          name: albumName,
-          songCount: songs.length,
-          streams: 0,
-          likesSaves: 0,
-          revenue: 0
-        });
-        setMessage('Album successfully uploaded and stored in the database.');
-      }
-    } catch (error) {
-      setMessage('Error uploading album. Please try again.');
-      console.error('Upload error:', error);
-    }*/
   };
 
   return (
@@ -284,21 +249,28 @@ const UploadPage: React.FC = () => {
                       ref={fileInputRef}
                       onChange={handleSongUpload}
                       accept=".mp3,audio/mpeg"
-                      multiple
                       className="hidden"
                     />
                   </div>
                 </div>
                 {songs.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="text-xl font-semibold mb-2">Uploaded Songs:</h3>
-                    <ul className="list-disc list-inside">
-                      {songs.map((song, index) => (
-                        <li key={index} className="text-gray-300">{song.name}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+  <div className="mt-4">
+    <h3 className="text-xl font-semibold mb-2">Uploaded Songs:</h3>
+    <div className="space-y-2">
+      {songs.map((song, index) => (
+        <div key={index} className="flex items-center justify-between bg-[#282828] p-3 rounded-lg">
+          <span className="text-gray-300">{song.name}</span>
+          <button
+            onClick={() => setSongs(songs.filter((_, i) => i !== index))}
+            className="text-red-500 hover:text-red-400 p-1 rounded-full hover:bg-[#3E3E3E] transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
                 {message && (
                   <p className="mt-4 text-yellow-400">{message}</p>
                 )}
@@ -351,6 +323,49 @@ const UploadPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Song Name Modal */}
+      {showSongModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-[#2A2A2A] p-6 rounded-lg max-w-sm w-full mx-4">
+            <h3 className="text-xl font-bold mb-4">Add Song</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm mb-2">Song Name</label>
+                <input
+                  type="text"
+                  value={songName}
+                  onChange={(e) => setSongName(e.target.value)}
+                  className="w-full p-3 rounded bg-[#1A1A1A] text-[#EBE7CD]"
+                  placeholder="Enter song name"
+                />
+              </div>
+              <p className="text-sm text-gray-400">
+                File: {currentSongFile?.name}
+              </p>
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={() => {
+                    setShowSongModal(false);
+                    setCurrentSongFile(null);
+                    setSongName('');
+                  }}
+                  className="px-4 py-2 rounded bg-[#3D3D3D] text-[#EBE7CD] hover:bg-[#4D4D4D]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddSong}
+                  disabled={!songName.trim()}
+                  className="px-4 py-2 rounded bg-[#1ED760] text-black hover:bg-[#1DB954] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Add Song
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
