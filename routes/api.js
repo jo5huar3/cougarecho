@@ -123,7 +123,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Create 'uploads' directory if it doesn't exist
-const uploadDir = path.join('/tmp/uploads');
+const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
@@ -285,10 +285,6 @@ router.post("/album-insert", upload.single('img'), async function (req, res) {
     }
   }
 });
-
-
-
-
 
 // Connection is successfull
 router.post("/artist/profile/update", async (req, res) => {
@@ -465,6 +461,134 @@ router.get('/songs/search', async (req, res) => {
 
   } catch (error) {
     console.error('Error fetching songs or artists:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+router.get('/user-rating', async (req, res) => {
+  try {
+    const pool = await sql.connect('your-database-connection-string');
+    const result = await pool.request().query(`
+      WITH UserPlays AS (
+          SELECT user_id, COUNT(song_id) AS songs_played
+          FROM dbo.SongPlayHistory
+          GROUP BY user_id
+      ),
+      UserPlaylists AS (
+          SELECT user_id, COUNT(playlist_id) AS playlists_created
+          FROM dbo.Playlist
+          GROUP BY user_id
+      ),
+      UserLikes AS (
+          SELECT user_id, COUNT(song_id) AS likes_given
+          FROM dbo.Likes
+          GROUP BY user_id
+      )
+      
+      SELECT 
+          u.user_id,
+          u.username,
+          u.display_name,
+          ISNULL(up.songs_played, 0) AS songs_played,
+          ISNULL(ul.likes_given, 0) AS likes_given,
+          ISNULL(upc.playlists_created, 0) AS playlists_created
+      FROM dbo.[User] u
+      LEFT JOIN UserPlays up ON u.user_id = up.user_id
+      LEFT JOIN UserLikes ul ON u.user_id = ul.user_id
+      LEFT JOIN UserPlaylists upc ON u.user_id = upc.user_id
+      ORDER BY u.user_id;
+    `);
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    console.error('Error fetching user activity report:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/song-rating', async (req, res) => {
+  try {
+    const pool = await sql.connect('your-database-connection-string');
+    const results = await pool.request().query(`
+      SELECT 
+          s.song_name,
+          a.artist_name,
+          COALESCE(COUNT(DISTINCT l.user_id), 0) AS total_likes,
+          COALESCE(COUNT(DISTINCT ph.user_id), 0) AS total_plays
+      FROM 
+          dbo.Song s
+      LEFT JOIN 
+          dbo.Likes l ON s.song_id = l.song_id
+      LEFT JOIN 
+          dbo.SongPlayHistory ph ON s.song_id = ph.song_id
+      LEFT JOIN 
+          dbo.Artist a ON s.artist_id = a.artist_id
+      GROUP BY 
+          s.song_name, a.artist_name
+      ORDER BY 
+          total_likes DESC, total_plays DESC;
+    `);
+    res.status(200).json(results.recordset);
+  } catch (error) {
+    console.error('Error fetching song rating report:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/artist-rating', async (req, res) => {
+  try {
+    const pool = await sql.connect('your-database-connection-string');
+    const results = await pool.request().query(`
+      WITH ArtistSongCounts AS (
+          SELECT 
+              s.artist_id,
+              COUNT(s.song_id) AS total_songs
+          FROM 
+              Song s
+          GROUP BY 
+              s.artist_id
+      ),
+      ArtistAlbumCounts AS (
+          SELECT 
+              a.artist_id,
+              COUNT(DISTINCT alb.album_id) AS total_albums
+          FROM 
+              Album alb
+          JOIN 
+              Artist a ON alb.artist_id = a.artist_id
+          GROUP BY 
+              a.artist_id
+      ),
+      ArtistLikeCounts AS (
+          SELECT 
+              s.artist_id,
+              COUNT(l.song_id) AS total_likes
+          FROM 
+              Likes l
+          JOIN 
+              Song s ON l.song_id = s.song_id
+          GROUP BY 
+              s.artist_id
+      )
+      
+      SELECT 
+          a.artist_id,
+          a.artist_name,
+          COALESCE(ascnt.total_songs, 0) AS total_songs,
+          COALESCE(aac.total_albums, 0) AS total_albums,
+          COALESCE(alc.total_likes, 0) AS total_likes
+      FROM 
+          Artist a
+      LEFT JOIN 
+          ArtistSongCounts ascnt ON a.artist_id = ascnt.artist_id
+      LEFT JOIN 
+          ArtistAlbumCounts aac ON a.artist_id = aac.artist_id
+      LEFT JOIN 
+          ArtistLikeCounts alc ON a.artist_id = alc.artist_id
+      ORDER BY 
+          total_likes DESC;
+    `);
+    res.status(200).json(results.recordset);
+  } catch (error) {
+    console.error('Error fetching artist summary report:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

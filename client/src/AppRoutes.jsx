@@ -17,7 +17,9 @@ import ArtistProfile from './components/artistpage/Artistprofile';
 import Player from './components/songplayer/Player';
 import Tracking from './components/admin/Tracking';
 import Newtrack from './components/admin/Newtrack';
-
+import SongRating from './components/report/Songrating';
+import UserRating from './components/report/Userrating';
+import ArtistRating from './components/report/Artistrating';
 
 export const PublicRoutes = [
   {
@@ -101,6 +103,20 @@ export const PublicRoutes = [
   {
     path: '/homepage',
     element: <Homepage />
+  },
+
+  //adding report path
+  {
+    path: '/song-rating',
+    element: <SongRating />
+  },
+  {
+    path: '/artist-rating',
+    element: <ArtistRating />
+  },
+  {
+    path: '/user-rating',
+    element: <UserRating />
   },
 
 

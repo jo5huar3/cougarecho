@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Home, Settings, Menu, PlusCircle, User, Play, Edit2, X, Music, LogOut, Image as ImageIcon } from 'lucide-react';
-import axios from 'axios';
-
+import { Search, Home, Settings, PlusCircle, User, X, Music, LogOut, Image as ImageIcon } from 'lucide-react';
+import Sidebar from '../../components/sidebar/Sidebar';  // Import the Sidebar component
 
 // Mock API with focused song database
 const mockApi = {
@@ -26,7 +25,6 @@ const mockApi = {
 };
 
 const CreatePlaylistPage = () => {
-  const [isMenuExpanded, setIsMenuExpanded] = useState(false);
   const [playlistTitle, setPlaylistTitle] = useState('');
   const [playlistImage, setPlaylistImage] = useState(null);
   const [selectedSongs, setSelectedSongs] = useState([]);
@@ -50,20 +48,27 @@ const CreatePlaylistPage = () => {
   }, [navigate]);
 
   const handleSearchSongs = async (query) => {
-    setSearchQuery(query);
-    if (query.length > 1) {
+    setSearchQuery(query.trim());
+    if (query.trim().length > 0) {
       try {
+        console.log(`Searching songs with query: ${query}`);
         const results = await mockApi.searchSongs(query);
+        console.log('Filtered Songs:', results);
+
         // Filter out songs that are already in the playlist
         const filteredResults = results.filter(
           result => !selectedSongs.some(selected => selected.id === result.id)
         );
+
+        console.log('Search Results after filtering:', filteredResults);
         setSearchResults(filteredResults);
+
       } catch (err) {
         console.error('Error searching songs:', err);
         setSearchResults([]);
       }
     } else {
+      console.log('Query too short');
       setSearchResults([]);
     }
   };
@@ -141,49 +146,7 @@ const CreatePlaylistPage = () => {
   return (
     <div className="bg-[#121212] text-[#EBE7CD] min-h-screen flex font-sans">
       {/* Sidebar */}
-      <div className={`w-16 flex flex-col items-center py-4 bg-black border-r border-gray-800 transition-all duration-300 ease-in-out ${isMenuExpanded ? 'w-64' : 'w-16'}`}>
-        <div className="flex flex-col items-center space-y-4 mb-8">
-          <button onClick={() => setIsMenuExpanded(!isMenuExpanded)} className="text-[#1ED760] hover:text-white" aria-label="Menu">
-            <Menu className="w-6 h-6" />
-          </button>
-        </div>
-        <div className="flex-grow"></div>
-        <div className="mt-auto flex flex-col items-center space-y-4 mb-4">
-          <Link to="/newplaylist" className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-[#EBE7CD] hover:text-white" aria-label="Add">
-            <PlusCircle className="w-6 h-6" />
-          </Link>
-          <Link to="/useredit" aria-label="User Profile" className="text-[#1ED760] hover:text-white">
-            <User className="w-6 h-6" />
-          </Link>
-        </div>
-      </div>
-
-      {/* Expandable Menu */}
-      {isMenuExpanded && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50">
-          <div className="bg-[#121212] w-64 h-full p-4">
-            <button onClick={() => setIsMenuExpanded(false)} className="mb-8 text-[#1ED760]">
-              <X className="w-6 h-6" />
-            </button>
-            <nav>
-              <ul className="space-y-4">
-                <li><Link to="/homepage" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Home className="w-5 h-5 mr-3" /> Home</Link></li>
-                <li><Link to="/search" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Search className="w-5 h-5 mr-3" /> Search</Link></li>
-                <li><Link to="/userlibrary" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Music className="w-5 h-5 mr-3" /> Your Library</Link></li>
-                <li><Link to="/newplaylist" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><PlusCircle className="w-5 h-5 mr-3" /> Create Playlist</Link></li>
-              </ul>
-            </nav>
-            <div className="mt-auto">
-              <Link to="/useredit" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center mt-4">
-                <User className="w-5 h-5 mr-3" /> Profile
-              </Link>
-              <button onClick={handleLogout} className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center mt-4">
-                <LogOut className="w-5 h-5 mr-3" /> Log out
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Sidebar handleCreatePlaylist={handleCreatePlaylist} handleLogout={handleLogout} />
 
       {/* Main content */}
       <div className="flex-1 flex flex-col p-8">
@@ -301,50 +264,5 @@ const CreatePlaylistPage = () => {
     </div>
   );
 };
-//form start
 
-const NewPlaylist = () => {
-  const [playlistName, setPlaylistName] = useState('');
-  const [songIds, setSongIds] = useState([]); // Array to store selected song IDs
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    try {
-      const response = await axios.post('/api/playlists/create', { playlistName, songIds });
-      alert(response.data.message);
-    } catch (error) {
-      console.error('Error creating playlist:', error);
-      alert('Failed to create playlist');
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <label>
-        Playlist Name:
-        <input
-          type="text"
-          value={playlistName}
-          onChange={(e) => setPlaylistName(e.target.value)}
-          required
-        />
-      </label>
-
-      {/* Replace with dynamic song list */}
-      <label>
-        Song Selection:
-        <input
-          type="checkbox"
-          value="1" // Example song ID
-          onChange={(e) => setSongIds([...songIds, e.target.value])}
-        />
-        Song 1
-      </label>
-
-      <button type="submit">Create Playlist</button>
-    </form>
-  );
-};
-//form end
 export default CreatePlaylistPage;

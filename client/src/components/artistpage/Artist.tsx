@@ -19,7 +19,7 @@ const mockApi = {
 };
 
 const Artist = () => {
-  const { user } = useContext(UserContext)
+  const { user } = useContext(UserContext);
   const navigate = useNavigate();
   const location = useLocation();
   const [artistProfile, setArtistProfile] = useState({ artist_id: '', display_name: '', album_count: 0, song_count: 0 });
@@ -31,11 +31,10 @@ const Artist = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      console.log(user)
+      console.log(user);
       try {
         const response1 = await axios.get('/artist/' + user.user_id);
-        console.log(response1?.data)
-        //const { display_name, album_count, song_count } = response1?.data;
+        console.log(response1?.data);
         const profileData = await response1?.data;
         setArtistProfile({ ...artistProfile, ...profileData });
       } catch (err) {
@@ -44,36 +43,26 @@ const Artist = () => {
       }
     };
     fetchData();
-    //fetchData2();
-
-    /*
-    const searchParams = new URLSearchParams(location.search);
-    const query = searchParams.get('q');
-    if (query) {
-      setSearchValue(query);
-    }
-  */
   }, [user]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const response = await axios.get('/artist/' + user.user_id + '/albumlatest');
-        console.log(response?.data)
-        //const { album_name, album_streams, album_likes } = response?.data;
+        console.log(response?.data);
         const albumData = await response?.data;
-        setLatestAlbum({ ...latestAlbum, ...albumData })
+        setLatestAlbum({ ...latestAlbum, ...albumData });
       } catch (err) {
         setError('Failed to fetch data. Please try again later.');
         console.error('Error fetching data:', err);
       }
-    }
+    };
     fetchData();
   }, [user]);
 
   useEffect(() => {
-    setIsLoading(false)
-  }, [isLoading])
+    setIsLoading(false);
+  }, [isLoading]);
 
   const handleLogout = () => {
     localStorage.removeItem('userToken');
@@ -95,7 +84,7 @@ const Artist = () => {
     const value = e.target.value;
     setSearchValue(value);
     if (value.length > 0) {
-      navigate(`/search?q=${encodeURIComponent(value)}`, { replace: true });
+      navigate(`/search?keyword=${encodeURIComponent(value)}`, { replace: true });
     } else {
       navigate('/artist', { replace: true });
     }
