@@ -774,6 +774,423 @@ router.get("/albums", async (req, res) => {
   try {
     const request = new sql.Request();
     const query = `
+<<<<<<< Updated upstream
+=======
+      SELECT TOP 6
+        a.album_id,
+        a.album_name,
+        a.artist_id,
+        art.artist_name,
+        a.album_cover
+      FROM [Album] a
+      INNER JOIN [Artist] art ON a.artist_id = art.artist_id
+      WHERE a.album_name IS NOT NULL
+      ORDER BY a.create_at DESC
+    `;
+
+    request.query(query, (err, result) => {
+      if (err) {
+        console.error('Database query error:', err);
+        return res.status(500).json({ error: err.message });
+      }
+      res.json(result.recordset || []);
+    });
+  } catch (err) {
+    console.error('Route error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//End Homepage: Yeni
+
+
+
+//edit start Yeni
+
+// Get user profile with display name and username
+router.get('/user/profile/:user_id', async (req, res) => {
+  try {
+    const user_id = req.params.user_id;
+    const request = new sql.Request();
+    request.input('user_id', sql.Int, user_id);
+    
+    const myQuery = `
+      SELECT U.user_id, U.username, U.display_name, U.role_id,
+        (SELECT COUNT(*) FROM [Playlist] WHERE user_id = U.user_id) as playlist_count
+      FROM [User] U 
+      WHERE U.user_id = @user_id`;
+
+    request.query(myQuery, (err, result) => {
+      if (err || !result?.recordset?.[0]) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      res.json(result.recordset[0]);
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update display name
+router.put('/user/displayname', async (req, res) => {
+  try {
+    const { user_id, display_name } = req.body;
+    
+    if (!display_name?.trim()) {
+      return res.status(400).json({ error: 'Display name cannot be empty' });
+    }
+
+    const request = new sql.Request();
+    request.input('user_id', sql.Int, user_id);
+    request.input('display_name', sql.NVarChar, display_name);
+
+    const transaction = new sql.Transaction();
+    await transaction.begin();
+
+    try {
+      // Update display name in User table
+      await request.query(`
+        UPDATE [User] 
+        SET display_name = @display_name 
+        WHERE user_id = @user_id`);
+
+      // Update display name in related Artist records if exists
+      await request.query(`
+        UPDATE [Artist]
+        SET artist_name = @display_name
+        WHERE user_id = @user_id`);
+
+      await transaction.commit();
+      res.json({ success: true, message: 'Display name updated successfully' });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update username
+router.put('/user/username', async (req, res) => {
+  try {
+    const { user_id, old_username, new_username } = req.body;
+
+    if (!new_username?.trim()) {
+      return res.status(400).json({ error: 'Username cannot be empty' });
+    }
+
+    const request = new sql.Request();
+    request.input('user_id', sql.Int, user_id);
+    request.input('old_username', sql.NVarChar, old_username);
+    request.input('new_username', sql.NVarChar, new_username);
+
+    // Check if old username matches
+    const userCheck = await request.query(
+      'SELECT username FROM [User] WHERE user_id = @user_id'
+    );
+
+    if (!userCheck.recordset[0] || userCheck.recordset[0].username !== old_username) {
+      return res.status(400).json({ error: 'Current username is incorrect' });
+    }
+
+    // Check if new username is already taken
+    const usernameCheck = await request.query(
+      'SELECT user_id FROM [User] WHERE username = @new_username AND user_id != @user_id'
+    );
+
+    if (usernameCheck.recordset.length > 0) {
+      return res.status(400).json({ error: 'Username is already taken' });
+    }
+
+    const transaction = new sql.Transaction();
+    await transaction.begin();
+
+    try {
+      // Update username
+      await request.query(`
+        UPDATE [User]
+        SET username = @new_username
+        WHERE user_id = @user_id`);
+
+      await transaction.commit();
+      res.json({ success: true, message: 'Username updated successfully' });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete account
+router.delete('/user/delete/:user_id', async (req, res) => {
+  try {
+    const user_id = req.params.user_id;
+    const request = new sql.Request();
+    request.input('user_id', sql.Int, user_id);
+
+    const transaction = new sql.Transaction();
+    await transaction.begin();
+
+    try {
+      // Delete user's playlist songs
+      await request.query(`
+        DELETE FROM [PlaylistSong]
+        WHERE playlist_id IN (SELECT playlist_id FROM [Playlist] WHERE user_id = @user_id)`);
+
+      // Delete user's playlists
+      await request.query(`
+        DELETE FROM [Playlist]
+        WHERE user_id = @user_id`);
+
+      // Delete user's song likes
+      await request.query(`
+        DELETE FROM [Likes]
+        WHERE user_id = @user_id`);
+
+      // Delete songs if user is an artist
+      await request.query(`
+        DELETE FROM [Song]
+        WHERE artist_id IN (SELECT artist_id FROM [Artist] WHERE user_id = @user_id)`);
+
+      // Delete albums if user is an artist
+      await request.query(`
+        DELETE FROM [Album]
+        WHERE artist_id IN (SELECT artist_id FROM [Artist] WHERE user_id = @user_id)`);
+
+      // Delete artist record if exists
+      await request.query(`
+        DELETE FROM [Artist]
+        WHERE user_id = @user_id`);
+
+      // Finally delete the user
+      await request.query(`
+        DELETE FROM [User]
+        WHERE user_id = @user_id`);
+
+      await transaction.commit();
+      res.json({ success: true, message: 'Account deleted successfully' });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+//edit end
+/*
+        a.album_id,
+        a.album_name,
+        a.artist_id,
+        art.artist_name,
+        a.album_cover
+      FROM [Album] a
+      INNER JOIN [Artist] art ON a.artist_id = art.artist_id
+      WHERE a.album_name IS NOT NULL
+      ORDER BY a.create_at DESC
+    `;
+
+    request.query(query, (err, result) => {
+      if (err) {
+        console.error('Database query error:', err);
+        return res.status(500).json({ error: err.message });
+      }
+      res.json(result.recordset || []);
+    });
+  } catch (err) {
+    console.error('Route error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+//End Homepage: Yeni
+
+
+
+//edit start Yeni
+
+// Get user profile with display name and username
+router.get('/user/profile/:user_id', async (req, res) => {
+  try {
+    const user_id = req.params.user_id;
+    const request = new sql.Request();
+    request.input('user_id', sql.Int, user_id);
+
+    const myQuery = `
+      SELECT U.user_id, U.username, U.display_name, U.role_id,
+        (SELECT COUNT(*) FROM [Playlist] WHERE user_id = U.user_id) as playlist_count
+      FROM [User] U 
+      WHERE U.user_id = @user_id`;
+
+    request.query(myQuery, (err, result) => {
+      if (err || !result?.recordset?.[0]) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      res.json(result.recordset[0]);
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update display name
+router.put('/user/displayname', async (req, res) => {
+  try {
+    const { user_id, display_name } = req.body;
+
+    if (!display_name?.trim()) {
+      return res.status(400).json({ error: 'Display name cannot be empty' });
+    }
+
+    const request = new sql.Request();
+    request.input('user_id', sql.Int, user_id);
+    request.input('display_name', sql.NVarChar, display_name);
+
+    const transaction = new sql.Transaction();
+    await transaction.begin();
+
+    try {
+      // Update display name in User table
+      await request.query(`
+        UPDATE [User] 
+        SET display_name = @display_name 
+        WHERE user_id = @user_id`);
+
+      // Update display name in related Artist records if exists
+      await request.query(`
+        UPDATE [Artist]
+        SET artist_name = @display_name
+        WHERE user_id = @user_id`);
+
+      await transaction.commit();
+      res.json({ success: true, message: 'Display name updated successfully' });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update username
+router.put('/user/username', async (req, res) => {
+  try {
+    const { user_id, old_username, new_username } = req.body;
+
+    if (!new_username?.trim()) {
+      return res.status(400).json({ error: 'Username cannot be empty' });
+    }
+
+    const request = new sql.Request();
+    request.input('user_id', sql.Int, user_id);
+    request.input('old_username', sql.NVarChar, old_username);
+    request.input('new_username', sql.NVarChar, new_username);
+
+    // Check if old username matches
+    const userCheck = await request.query(
+      'SELECT username FROM [User] WHERE user_id = @user_id'
+    );
+
+    if (!userCheck.recordset[0] || userCheck.recordset[0].username !== old_username) {
+      return res.status(400).json({ error: 'Current username is incorrect' });
+    }
+
+    // Check if new username is already taken
+    const usernameCheck = await request.query(
+      'SELECT user_id FROM [User] WHERE username = @new_username AND user_id != @user_id'
+    );
+
+    if (usernameCheck.recordset.length > 0) {
+      return res.status(400).json({ error: 'Username is already taken' });
+    }
+
+    const transaction = new sql.Transaction();
+    await transaction.begin();
+
+    try {
+      // Update username
+      await request.query(`
+        UPDATE [User]
+        SET username = @new_username
+        WHERE user_id = @user_id`);
+
+      await transaction.commit();
+      res.json({ success: true, message: 'Username updated successfully' });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete account
+router.delete('/user/delete/:user_id', async (req, res) => {
+  try {
+    const user_id = req.params.user_id;
+    const request = new sql.Request();
+    request.input('user_id', sql.Int, user_id);
+
+    const transaction = new sql.Transaction();
+    await transaction.begin();
+
+    try {
+      // Delete user's playlist songs
+      await request.query(`
+        DELETE FROM [PlaylistSong]
+        WHERE playlist_id IN (SELECT playlist_id FROM [Playlist] WHERE user_id = @user_id)`);
+
+      // Delete user's playlists
+      await request.query(`
+        DELETE FROM [Playlist]
+        WHERE user_id = @user_id`);
+
+      // Delete user's song likes
+      await request.query(`
+        DELETE FROM [Likes]
+        WHERE user_id = @user_id`);
+
+      // Delete songs if user is an artist
+      await request.query(`
+        DELETE FROM [Song]
+        WHERE artist_id IN (SELECT artist_id FROM [Artist] WHERE user_id = @user_id)`);
+
+      // Delete albums if user is an artist
+      await request.query(`
+        DELETE FROM [Album]
+        WHERE artist_id IN (SELECT artist_id FROM [Artist] WHERE user_id = @user_id)`);
+
+      // Delete artist record if exists
+      await request.query(`
+        DELETE FROM [Artist]
+        WHERE user_id = @user_id`);
+
+      // Finally delete the user
+      await request.query(`
+        DELETE FROM [User]
+        WHERE user_id = @user_id`);
+
+      await transaction.commit();
+      res.json({ success: true, message: 'Account deleted successfully' });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get top 3 albums
+router.get("/albums", async (req, res) => {
+  try {
+    const request = new sql.Request();
+    const query = `
+>>>>>>> Stashed changes
       SELECT TOP 3
         a.album_id,
         a.album_name,
@@ -803,5 +1220,6 @@ router.get("/albums", async (req, res) => {
 
 });
 //End Homepage: Yeni
+*/
 export default router;
 
