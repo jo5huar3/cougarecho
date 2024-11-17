@@ -39,7 +39,7 @@ router.get('/listener/:id', async (req, res) => {
     const myQuery = `SELECT U.display_name, \
             ( \
             SELECT COUNT(*) FROM [Playlist] P where P.user_id = U.user_id \
-            ) playlists FROM [User] U WHERE U.user_id = @user_id`;
+            ) playlists, U.avatar FROM [User] U WHERE U.user_id = @user_id`;
     request.query(myQuery, async (err, result) => {
       console.log(result?.recordset?.[0])
       if (result?.recordset?.length > 0) {
@@ -62,10 +62,32 @@ router.get('/album/:album_id/IMG', async (req, res) => {
     const myQuery = 'SELECT A.album_cover FROM [Album] A WHERE A.album_id = @album_id;';
     request.query(myQuery, async (err, result) => {
       if (result?.recordset?.length > 0) {
-        console.log(result.recordset?.[0].album_cover)
-        const imageBuffer = result.recordset[0].album_cover;
+        console.log("IMAGE BACKEND: ", result.recordset?.[0].album_cover)
+        const imageBuffer = result?.recordset?.[0].album_cover;
         res.setHeader('Content-Type', 'image/jpeg'); // Set the correct MIME type
-        return res.send(imageBuffer);
+        res.send(imageBuffer);
+      } else {
+        return res.status(300).json({ message: "Album does not exist." });
+      }
+    })
+
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+})
+router.get('/artist/:artist_id/IMG', async (req, res) => {
+  try {
+    const artist_id = req.params.artist_id;
+    const request = new sql.Request();
+    request.input('artist_id', sql.Int, artist_id)
+    const myQuery = 'SELECT A.album_cover FROM [Album] A WHERE A.album_id = @album_id;';
+    request.query(myQuery, async (err, result) => {
+      if (result?.recordset?.length > 0) {
+        console.log("IMAGE BACKEND: ", result.recordset?.[0].album_cover)
+        const imageBuffer = result?.recordset?.[0].album_cover;
+        res.setHeader('Content-Type', 'image/jpeg'); // Set the correct MIME type
+        res.send(imageBuffer);
+
       } else {
         return res.status(300).json({ message: "Album does not exist." });
       }
@@ -125,22 +147,33 @@ router.get('/album/playcount/3', async (req, res) => {
     const request = new sql.Request();
     //request.input('user_id', sql.Int, id)
     const myQuery = 'SELECT TOP 3 A.album_id, A.album_name, ART.artist_name, \
-     AP.playCount, AP.lastPlayed \
+     AP.playCount, AP.lastPlayed, A.album_cover \
     FROM [Album] A, [Artist] ART, [AlbumPlays] AP \
-    where A.album_cover is not null and A.artist_id = ART.artist_id and A.album_id = AP.album_id ORDER BY AP.playCount DESC;;';
-    request.query(myQuery, async (err, result) => {
-      if (result?.recordset?.length > 0) {
-        console.log([result?.recordset?.[0], result?.recordset?.[1], result?.recordset?.[2]])
-        res.json([result.recordset[0], result.recordset[1], result.recordset[2]]);
-      } else {
-        res.json([result?.recordset?.[0], result?.recordset?.[1], result?.recordset?.[2]]);
-      }
+    where A.album_cover is not null and A.artist_id = ART.artist_id and A.album_id = AP.album_id ORDER BY AP.playCount DESC;';
+    const result = await request.query(myQuery);
+    const albums = result?.recordset?.map((album) => {
+      const base64Image = album.album_cover
+        ? Buffer.from(album.album_cover).toString('base64')
+        : null;
+      return {
+        album_id: album.album_id,
+        album_name: album.album_name,
+        artist_name: album.artist_name,
+        playCount: album.playCount,
+        lastPlayed: album.lastPlayed,
+        album_cover: base64Image ? `data:image/jpeg;base64,${base64Image}` : null, // Include MIME type prefix
+      };
+
     })
 
+    /*console.log([{ ...result?.recordset?.[0], album_cover: null },
+    { ...result?.recordset?.[1], album_cover: null }, { ...result?.recordset?.[2], album_cover: null }])*/
+    return res.json(albums);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
