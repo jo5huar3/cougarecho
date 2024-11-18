@@ -171,6 +171,31 @@ const CreatePlaylistPage = () => {
     checkAuth();
   }, [navigate]);
 
+
+  const handleSearchSongs = async (query) => {
+    setSearchQuery(query.trim());
+    if (query.trim().length > 0) {
+      try {
+        console.log(`Searching songs with query: ${query}`);
+        const results = await mockApi.searchSongs(query);
+        console.log('Filtered Songs:', results);
+
+        // Filter out songs that are already in the playlist
+        const filteredResults = results.filter(
+          result => !selectedSongs.some(selected => selected.id === result.id)
+        );
+
+        console.log('Search Results after filtering:', filteredResults);
+        setSearchResults(filteredResults);
+
+      } catch (err) {
+        console.error('Error searching songs:', err);
+        setSearchResults([]);
+      }
+    } else {
+      console.log('Query too short');
+      setSearchResults([]);
+
   // Add cleanup for search API calls
   useEffect(() => {
     const abortController = new AbortController();
@@ -467,6 +492,91 @@ const CreatePlaylistPage = () => {
       {/* Sidebar */}
       <Sidebar handleCreatePlaylist={handleCreatePlaylist} handleLogout={handleLogout} />
 
+      <div className={`w-16 flex flex-col items-center py-4 bg-black border-r border-gray-800 transition-all duration-300 ease-in-out ${isMenuExpanded ? 'w-64' : 'w-16'}`}>
+        <div className="flex flex-col items-center space-y-4 mb-8">
+          <button 
+            onClick={() => setIsMenuExpanded(!isMenuExpanded)} 
+            className="text-[#1ED760] hover:text-white transition-colors" 
+            aria-label="Menu"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="flex-grow"></div>
+        <div className="mt-auto flex flex-col items-center space-y-4 mb-4">
+          <Link 
+            to="/newplaylist" 
+            className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-[#EBE7CD] hover:text-white transition-colors" 
+            aria-label="Add"
+          >
+            <PlusCircle className="w-6 h-6" />
+          </Link>
+          <Link 
+            to="/useredit" 
+            aria-label="User Profile" 
+            className="text-[#1ED760] hover:text-white transition-colors"
+          >
+            <User className="w-6 h-6" />
+          </Link>
+        </div>
+      </div>
+
+      {/* Expanded menu overlay */}
+      {isMenuExpanded && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-50"
+          onClick={() => setIsMenuExpanded(false)} // Close on overlay click
+        >
+          <div 
+            className="bg-[#121212] w-64 h-full p-4"
+            onClick={e => e.stopPropagation()} // Prevent click from bubbling to overlay
+          >
+            <button 
+              onClick={() => setIsMenuExpanded(false)} 
+              className="mb-8 text-[#1ED760] hover:text-white transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <nav>
+              <ul className="space-y-4">
+                <li>
+                  <Link to="/homepage" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center transition-colors">
+                    <Home className="w-5 h-5 mr-3" /> Home
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/search" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center transition-colors">
+                    <Search className="w-5 h-5 mr-3" /> Search
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/userlibrary" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center transition-colors">
+                    <Music className="w-5 h-5 mr-3" /> Your Library
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/newplaylist" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center transition-colors">
+                    <PlusCircle className="w-5 h-5 mr-3" /> Create Playlist
+                  </Link>
+                </li>
+              </ul>
+            </nav>
+            <div className="mt-auto">
+              <Link to="/useredit" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center mt-4 transition-colors">
+                <User className="w-5 h-5 mr-3" /> Profile
+              </Link>
+              <button 
+                onClick={handleLogout} 
+                className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center mt-4 transition-colors w-full"
+              >
+                <LogOut className="w-5 h-5 mr-3" /> Log out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
       {/* Main content */}
       <div className="flex-1 flex flex-col p-8">
         {/* Header */}
@@ -645,4 +755,7 @@ const CreatePlaylistPage = () => {
   );
 };
 
+<<<<<<<<< Temporary merge branch 1
+export default CreatePlaylistPage;
+=========
 export default CreatePlaylistPage;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Search, Home, Settings, Menu, PlusCircle, User, Disc, X, Music, LogOut } from 'lucide-react'; from 'lucide-react';
+import { Search, Home, Settings, Menu, PlusCircle, User, Disc, X, Music, LogOut } from 'lucide-react';
 import axios from '../../api/axios';
 import Sidebar from '../../components/sidebar/Sidebar'; // Update this import path as per your project structure
 
