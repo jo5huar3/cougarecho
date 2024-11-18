@@ -13,7 +13,11 @@ const router = express.Router();
 const SECRET_KEY = process.env.ACCESS_TOKEN_SECRET;
 const userRoles = { "Listener": 1, "Artist": 2, "Admin": 3 }
 
-
+router.use(express.json());
+router.use((req, res, next) => {
+  res.setHeader('Content-Type', 'application/json');
+  next();
+});
 
 router.get("/data", async (req, res) => {
   try {
@@ -525,16 +529,12 @@ router.post("/playlist/new", async (req, res) => {
 //Start: get playlist
 
 router.get('/playlist/:playlist_id', async (req, res) => {
-  console.log('Playlist request received for ID:', req.params.playlist_id);
-  
   try {
     const { playlist_id } = req.params;
-    console.log('Fetching playlist with ID:', playlist_id);
-    
     const request = new sql.Request();
     request.input('playlist_id', sql.Int, playlist_id);
     
-    // First get playlist details
+    // Get playlist details
     const playlistQuery = `
       SELECT 
         p.playlist_id,
@@ -548,16 +548,13 @@ router.get('/playlist/:playlist_id', async (req, res) => {
       JOIN [User] u ON p.user_id = u.user_id
       WHERE p.playlist_id = @playlist_id`;
     
-    console.log('Executing playlist query...');
     const playlist = await request.query(playlistQuery);
-    console.log('Playlist query result:', playlist?.recordset);
 
-    if (!playlist?.recordset?.[0]) {
-      console.log('Playlist not found');
+    if (!playlist.recordset?.[0]) {
       return res.status(404).json({ message: "Playlist not found" });
     }
 
-    // Then get songs
+    // Get songs after confirming playlist exists
     const songsQuery = `
       SELECT 
         s.song_id,
@@ -565,7 +562,7 @@ router.get('/playlist/:playlist_id', async (req, res) => {
         art.artist_name,
         s.duration,
         alb.album_name,
-        ps.created_at as added_at,
+        ps.created_at as dateAdded,
         s.plays
       FROM [Song] s
       JOIN [PlaylistSongs] ps ON s.song_id = ps.song_id
@@ -574,20 +571,29 @@ router.get('/playlist/:playlist_id', async (req, res) => {
       WHERE ps.playlist_id = @playlist_id AND ps.active = 1
       ORDER BY ps.created_at DESC`;
 
-    console.log('Executing songs query...');
     const songs = await request.query(songsQuery);
-    console.log('Songs query result count:', songs?.recordset?.length);
 
+    // Construct response
     const response = {
       ...playlist.recordset[0],
-      songs: songs.recordset || []
+      songs: songs.recordset.map(song => ({
+        song_id: song.song_id,
+        song_name: song.song_name,
+        artist_name: song.artist_name,
+        album_name: song.album_name,
+        duration: song.duration,
+        dateAdded: song.dateAdded,
+        plays: song.plays
+      }))
     };
 
-    console.log('Sending response:', response);
-    return res.json(response);
+    // Force the content type and send response
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(200).json(response);
 
   } catch (err) {
-    console.error('Error in playlist route:', err);
+    console.error('Error fetching playlist:', err);
+    res.setHeader('Content-Type', 'application/json');
     return res.status(500).json({ error: err.message });
   }
 });
@@ -657,104 +663,7 @@ router.delete('/playlist/:playlist_id/song/:song_id', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-//End: Delete song from playlist
 
-// Delete playlist
-router.delete('/playlist/:playlist_id', async (req, res) => {
-  try {
-    const { playlist_id } = req.params;
-
-    if (!playlist_id) {
-      return res.status(400).json({ message: 'Playlist ID is required' });
-    }
-
-    const request = new sql.Request();
-    request.input('playlist_id', sql.Int, playlist_id);
-
-    // First, delete all related songs in PlaylistSongs (optional, if required)
-    await request.query(`
-      DELETE FROM [PlaylistSongs]
-      WHERE playlist_id = @playlist_id
-    `);
-
-    // Then, delete the playlist itself
-    const result = await request.query(`
-      DELETE FROM [Playlist]
-      WHERE playlist_id = @playlist_id
-    `);
-
-    if (result.rowsAffected[0] === 1) {
-      res.status(200).json({ message: 'Playlist deleted successfully' });
-    } else {
-      res.status(404).json({ message: 'Playlist not found' });
-    }
-  } catch (err) {
-    console.error('Error deleting playlist:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-//End: delete playlist
-
-
-
-//Start: update playlist name
-router.put('/playlist/:playlist_id/title', async (req, res) => {
-  try {
-    const { playlist_id } = req.params;
-    const { title } = req.body;
-    
-    const request = new sql.Request();
-    request.input('playlist_id', sql.Int, playlist_id);
-    request.input('title', sql.VarChar(100), title);
-    
-    const result = await request.query(`
-      UPDATE [Playlist]
-      SET title = @title,
-          updated_at = GETDATE()
-      WHERE playlist_id = @playlist_id;
-      
-      SELECT 
-        p.*, 
-        u.username as creator_name
-      FROM [Playlist] p
-      JOIN [User] u ON p.user_id = u.user_id
-      WHERE p.playlist_id = @playlist_id;
-    `);
-
-    if (!result.recordset?.[0]) {
-      return res.status(404).json({ message: "Playlist not found" });
-    }
-
-    res.json(result.recordset[0]);
-
-  } catch (err) {
-    console.error('Error updating playlist:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-//End: update playlist name
-router.put('/playlist/:playlist_id', async (req, res) => {
-  try {
-    const { playlist_id } = req.params;
-    const { title } = req.body;
-    
-    const request = new sql.Request();
-    request.input('playlist_id', sql.Int, playlist_id);
-    request.input('title', sql.VarChar, title);
-    
-    await request.query(`
-      UPDATE [Playlist]
-      SET title = @title, updated_at = GETDATE()
-      WHERE playlist_id = @playlist_id
-    `);
-
-    res.json({ message: 'Playlist updated successfully' });
-  } catch (err) {
-    console.error('Error updating playlist:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
 //Start: get user playlists
 // Get user's playlists
 router.get('/playlists/user/:userId', async (req, res) => {

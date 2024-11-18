@@ -24,7 +24,10 @@ export const PublicRoutes = [
     index: true,
     element: <Home />
   },
-
+  {
+    path: '/playlist/:id',  // This new route allows for dynamic playlist IDs
+    element: <Playlist />
+  },
   {
     path: '/login',
     element: <Login />
@@ -131,6 +134,7 @@ export const ArtistRoutes = [
     path: '/newalbum',
     element: <Newalbum />
   },
+
 ]
 export const AdminRoutes = [
 

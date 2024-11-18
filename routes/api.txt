@@ -525,12 +525,8 @@ router.post("/playlist/new", async (req, res) => {
 //Start: get playlist
 
 router.get('/playlist/:playlist_id', async (req, res) => {
-  console.log('Playlist request received for ID:', req.params.playlist_id);
-  
   try {
     const { playlist_id } = req.params;
-    console.log('Fetching playlist with ID:', playlist_id);
-    
     const request = new sql.Request();
     request.input('playlist_id', sql.Int, playlist_id);
     
@@ -548,16 +544,7 @@ router.get('/playlist/:playlist_id', async (req, res) => {
       JOIN [User] u ON p.user_id = u.user_id
       WHERE p.playlist_id = @playlist_id`;
     
-    console.log('Executing playlist query...');
-    const playlist = await request.query(playlistQuery);
-    console.log('Playlist query result:', playlist?.recordset);
-
-    if (!playlist?.recordset?.[0]) {
-      console.log('Playlist not found');
-      return res.status(404).json({ message: "Playlist not found" });
-    }
-
-    // Then get songs
+    // Then get all songs in the playlist
     const songsQuery = `
       SELECT 
         s.song_id,
@@ -574,21 +561,31 @@ router.get('/playlist/:playlist_id', async (req, res) => {
       WHERE ps.playlist_id = @playlist_id AND ps.active = 1
       ORDER BY ps.created_at DESC`;
 
-    console.log('Executing songs query...');
+    const playlist = await request.query(playlistQuery);
     const songs = await request.query(songsQuery);
-    console.log('Songs query result count:', songs?.recordset?.length);
+
+    if (!playlist.recordset?.[0]) {
+      return res.status(404).json({ message: "Playlist not found" });
+    }
 
     const response = {
       ...playlist.recordset[0],
-      songs: songs.recordset || []
+      songs: songs.recordset.map(song => ({
+        song_id: song.song_id,
+        song_name: song.song_name,
+        artist_name: song.artist_name,
+        album_name: song.album_name,
+        duration: song.duration,
+        dateAdded: song.added_at,
+        plays: song.plays
+      }))
     };
 
-    console.log('Sending response:', response);
-    return res.json(response);
+    res.json(response);
 
   } catch (err) {
-    console.error('Error in playlist route:', err);
-    return res.status(500).json({ error: err.message });
+    console.error('Error fetching playlist:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 //End: get playlist
