@@ -117,17 +117,7 @@ const Admin = () => {
             <Menu className="w-6 h-6" />
           </button>
         </div>
-        <div className="flex-grow space-y-4">
-          <Link to="/homepage" aria-label="Home" className="text-[#1ED760] hover:text-white">
-            <Home className="w-6 h-6" />
-          </Link>
-          <Link to="/search" aria-label="Search" className="text-[#1ED760] hover:text-white">
-            <Search className="w-6 h-6" />
-          </Link>
-          <Link to="/library" aria-label="Library" className="text-[#1ED760] hover:text-white">
-            <Music className="w-6 h-6" />
-          </Link>
-        </div>
+        <div className="flex-grow"></div>
         <div className="mt-auto flex flex-col items-center space-y-4 mb-4">
           <button onClick={handleCreatePlaylist} className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-[#EBE7CD] hover:text-white" aria-label="Add">
             <PlusCircle className="w-6 h-6" />
@@ -135,13 +125,40 @@ const Admin = () => {
           <Link to="/useredit" aria-label="User Profile" className="text-[#1ED760] hover:text-white">
             <User className="w-6 h-6" />
           </Link>
-          <button onClick={handleLogout} className="text-[#1ED760] hover:text-white" aria-label="Logout">
-            <LogOut className="w-6 h-6" />
-          </button>
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Expandable Menu */}
+      {isMenuExpanded && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50">
+          <div className="bg-[#121212] w-64 h-full p-4">
+            <button onClick={() => setIsMenuExpanded(false)} className="mb-8 text-[#1ED760]">
+              <X className="w-6 h-6" />
+            </button>
+            <nav>
+              <ul className="space-y-4">
+                <li><Link to="/homepage" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Home className="w-5 h-5 mr-3" /> Home</Link></li>
+                <li><Link to="/search" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Search className="w-5 h-5 mr-3" /> Search</Link></li>
+                <li><Link to="/userlibrary" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Music className="w-5 h-5 mr-3" /> Your Library</Link></li>
+                <li><button onClick={handleCreatePlaylist} className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><PlusCircle className="w-5 h-5 mr-3" /> Create Playlist</button></li>
+              </ul>
+            </nav>
+            <div className="mt-auto">
+              <Link to="/useredit" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center mt-4">
+                <User className="w-5 h-5 mr-3" /> Profile
+              </Link>
+              <button 
+                onClick={handleLogout}
+                className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center mt-4 w-full"
+              >
+                <LogOut className="w-5 h-5 mr-3" /> Log out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main content */}
       <div className="flex-1 flex flex-col p-8">
         {/* Top bar */}
         <div className="flex items-center justify-between mb-8">
@@ -215,12 +232,7 @@ const Admin = () => {
                 </div>
               )}
             </div>
-            <button
-              onClick={handleActivityTracking}
-              className="bg-[#2A2A2A] hover:bg-[#3A3A3A] text-[#EBE7CD] font-semibold py-3 px-6 rounded-full transition-colors duration-200"
-            >
-              Activity Tracking System
-            </button>
+
             <button
               onClick={() => navigate('/makeadmin')}
               className="bg-[#2A2A2A] hover:bg-[#3A3A3A] text-[#EBE7CD] font-semibold py-3 px-6 rounded-full transition-colors duration-200"
