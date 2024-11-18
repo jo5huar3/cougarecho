@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Home, Settings } from 'lucide-react';
+import { Search, Home, Settings, Menu, PlusCircle, User, Play, X, Music, LogOut } from 'lucide-react';
 import Sidebar from '../../components/sidebar/Sidebar';
 import axios from '../../api/axios';
 

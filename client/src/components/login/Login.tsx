@@ -40,22 +40,28 @@ const LoginPage = () => {
         }
       );
       if (response?.data) {
-        const { token, user_id, name, role_id } = response.data;
+        const { token, user_id, role_id } = response.data;
+        
+        // Store token and role_id in Local Storage
         localStorage.setItem('token', token);
+        localStorage.setItem('role_id', role_id);  // Store the role ID separately
+        localStorage.setItem('user_id', user_id);  // Optionally store user ID separately
+        
+        // Update User Context
         const _user = { user_id, username: username_l, role_id };
-        setUser(_user)
-        console.log(token)
+        setUser(_user);
+  
+        // Navigate based on role
         switch (role_id) {
           case 1:
-            navigate('/listener/')
+            navigate('/listener/');
             break;
           case 2:
-            navigate('/artist/' + user_id)
+            navigate(`/artist/${user_id}`);
             break;
           case 3:
-            navigate('/admin')
+            navigate('/admin');
             break;
-
         }
       }
     } catch (err) {

@@ -21,6 +21,7 @@ import Makeadmin from './components/admin/Makeadmin';
 import SongRating from './components/report/Songrating';
 import UserRating from './components/report/Userrating';
 import ArtistRating from './components/report/Artistrating';
+import Notification from './components/notification/Notification';
 
 export const PublicRoutes = [
   {
@@ -107,6 +108,10 @@ export const PublicRoutes = [
   },
 
   //adding report path
+  {
+    path: '/notifications',
+    element: <Notification />
+  },
   {
     path: '/song-rating',
     element: <SongRating />

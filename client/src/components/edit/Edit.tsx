@@ -71,20 +71,6 @@ const UserProfileSettings = () => {
     });
   };
 
-  const handleSearchChange = (e) => {
-    const value = e.target.value;
-    setSearchValue(value);
-    if (value.length > 0) {
-      navigate(`/search?keyword=${encodeURIComponent(value)}`, { replace: true });
-    } else {
-      navigate('/useredit', { replace: true });
-    }
-  };
-
-  const handleCreatePlaylist = () => {
-    navigate('/newplaylist');
-  };
-
   const getProfilePath = () => {
     if (!user.user_id) return '/';
     
