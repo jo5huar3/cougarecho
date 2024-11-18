@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate for navigation
 import {
   useReactTable,
   getCoreRowModel,
@@ -20,6 +21,7 @@ interface ArtistReportData {
 }
 
 const ArtistSummaryReport: React.FC = () => {
+  const navigate = useNavigate(); // Initialize navigate function
   const [reportData, setReportData] = useState<ArtistReportData[]>([]);
   const [originalData, setOriginalData] = useState<ArtistReportData[]>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -146,7 +148,15 @@ const ArtistSummaryReport: React.FC = () => {
     <div className="flex min-h-screen">
       <Sidebar /> {/* Sidebar on the left */}
       <div className="bg-[#121212] text-[#EBE7CD] p-8 flex-grow font-sans">
-        <h1 className="text-3xl font-semibold mb-8">Artist Summary Report</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-semibold">Artist Summary Report</h1>
+          <button
+            onClick={() => navigate('/admin')}
+            className="bg-[#4a8f4f] text-[#FAF5CE] px-4 py-2 rounded hover:bg-[#5aa55f] transition-colors"
+          >
+            Return to Admin Dashboard
+          </button>
+        </div>
 
         {/* Error Message */}
         {errMsg && (

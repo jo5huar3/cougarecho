@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   useReactTable,
   getCoreRowModel,
@@ -8,22 +9,30 @@ import {
   flexRender,
   ColumnFiltersState,
 } from '@tanstack/react-table';
+import { DateRangePicker } from 'react-date-range';
 import axios from '../../api/axios';
 import Sidebar from '../../components/sidebar/Sidebar';
+import 'react-date-range/dist/styles.css';
+import 'react-date-range/dist/theme/default.css';
+import './UserActivityReport.css';
 
 interface UserReportData {
-  user_id: number;
   username: string;
   songs_played: number;
   playlists_created: number;
-  likes_given: number;
+  account_created_at: string;
 }
 
 const UserActivityReport: React.FC = () => {
+  const navigate = useNavigate();
   const [reportData, setReportData] = useState<UserReportData[]>([]);
   const [originalData, setOriginalData] = useState<UserReportData[]>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [filterVisible, setFilterVisible] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<{ startDate: Date; endDate: Date }>({
+    startDate: new Date(),
+    endDate: new Date(),
+  });
   const [searchValue, setSearchValue] = useState<{ [key: string]: string }>({});
   const [pendingFilters, setPendingFilters] = useState<{ [key: string]: any[] }>({});
   const [errMsg, setErrMsg] = useState<string | null>(null);
@@ -33,7 +42,6 @@ const UserActivityReport: React.FC = () => {
       const token = localStorage.getItem('token') || '';
 
       try {
-        // Fetch the user activity data from backend API
         const response = await axios.get('/user-rating', {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -55,22 +63,21 @@ const UserActivityReport: React.FC = () => {
       }
     };
 
-    // Fetch user activity data when component mounts
     fetchData();
   }, []);
 
   const columns = React.useMemo<ColumnDef<UserReportData>[]>(() => [
     {
-      accessorKey: 'user_id',
-      header: 'User ID',
+      accessorKey: 'username',
+      header: 'Username',
       cell: info => info.getValue(),
       filterFn: 'includesString',
       enableColumnFilter: true,
     },
     {
-      accessorKey: 'username',
-      header: 'Username',
-      cell: info => info.getValue(),
+      accessorKey: 'account_created_at',
+      header: 'Account Creation Day',
+      cell: info => new Date(info.getValue()).toLocaleDateString("en-US"),
       filterFn: 'includesString',
       enableColumnFilter: true,
     },
@@ -84,13 +91,6 @@ const UserActivityReport: React.FC = () => {
     {
       accessorKey: 'playlists_created',
       header: 'Playlists Created',
-      cell: info => info.getValue(),
-      filterFn: 'includesString',
-      enableColumnFilter: true,
-    },
-    {
-      accessorKey: 'likes_given',
-      header: 'Total Likes',
       cell: info => info.getValue(),
       filterFn: 'includesString',
       enableColumnFilter: true,
@@ -109,46 +109,52 @@ const UserActivityReport: React.FC = () => {
     getSortedRowModel: getSortedRowModel(),
   });
 
-  const applyFilter = (header) => {
-    const filterValues = pendingFilters[header.id] && pendingFilters[header.id].length > 0 ? pendingFilters[header.id] : undefined;
-    if (filterValues) {
-      const filteredData = originalData.filter(row => filterValues.includes(row[header.column.id]));
-      filteredData.sort((a, b) => {
-        const indexA = filterValues.indexOf(a[header.column.id]);
-        const indexB = filterValues.indexOf(b[header.column.id]);
-        return indexA - indexB;
-      });
-      setReportData(filteredData);
-    } else {
-      setReportData(originalData);
-    }
+  const applyDateRangeFilter = () => {
+    const { startDate, endDate } = dateRange;
+
+    const filteredData = originalData.filter(row => {
+      const accountCreationDate = new Date(row.account_created_at);
+      return (
+        accountCreationDate >= startDate &&
+        accountCreationDate <= endDate
+      );
+    });
+
+    setReportData(filteredData);
     setFilterVisible(null);
   };
 
-  const handleFilterButtonClick = (headerId) => {
-    setFilterVisible(prev => (prev === headerId ? null : headerId));
-    setPendingFilters({ [headerId]: pendingFilters[headerId] || [] });
-    setSearchValue({ [headerId]: searchValue[headerId] || '' });
+  const applyCheckboxFilter = (headerId: string) => {
+    const selectedValues = pendingFilters[headerId] || [];
+    const filteredData = originalData.filter(row => selectedValues.includes(row[headerId as keyof UserReportData]));
+    setReportData(filteredData);
+    setFilterVisible(null);
   };
 
-  const handleClearFilter = (header) => {
-    if ((pendingFilters[header.id] || []).length === 0 && searchValue[header.id]) {
-      setSearchValue(prev => ({ ...prev, [header.id]: '' }));
-    } else {
-      setPendingFilters(prev => ({ ...prev, [header.id]: [] }));
-      setSearchValue(prev => ({ ...prev, [header.id]: '' }));
-      setReportData(originalData);
-      setFilterVisible(null);
-    }
+  const handleFilterButtonClick = (headerId: string) => {
+    setFilterVisible(prev => (prev === headerId ? null : headerId));
+  };
+
+  const handleClearFilter = (headerId: string) => {
+    setPendingFilters(prev => ({ ...prev, [headerId]: [] }));
+    setReportData(originalData);
+    setFilterVisible(null);
   };
 
   return (
     <div className="flex min-h-screen">
       <Sidebar /> {/* Sidebar on the left */}
       <div className="bg-[#121212] text-[#EBE7CD] p-8 flex-grow font-sans">
-        <h1 className="text-3xl font-semibold mb-8">User Activity Report</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-semibold">User Activity Report</h1>
+          <button
+            onClick={() => navigate('/admin')}
+            className="bg-[#4a8f4f] text-[#FAF5CE] px-4 py-2 rounded hover:bg-[#5aa55f] transition-colors"
+          >
+            Return to Admin Dashboard
+          </button>
+        </div>
 
-        {/* Error Message */}
         {errMsg && (
           <div className="text-red-500 mb-4">{errMsg}</div>
         )}
@@ -164,7 +170,7 @@ const UserActivityReport: React.FC = () => {
                         {header.isPlaceholder
                           ? null
                           : flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getCanFilter() ? (
+                        {header.column.getCanFilter() && (
                           <div className="relative ml-2">
                             <span
                               onClick={() => handleFilterButtonClick(header.id)}
@@ -180,105 +186,80 @@ const UserActivityReport: React.FC = () => {
                                     : 'left-0'
                                 }`}
                               >
-                                <div className="flex items-center mb-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={
-                                      pendingFilters[header.id] &&
-                                      pendingFilters[header.id].length === originalData.filter(row => row[header.column.id] !== undefined).length
-                                    }
-                                    onChange={(e) => {
-                                      const allValues = Array.from(new Set(originalData.map(row => row[header.column.id])));
-                                      setPendingFilters(prev => ({
-                                        ...prev,
-                                        [header.id]: e.target.checked ? allValues : []
-                                      }));
-                                    }}
-                                    className="mr-2"
-                                  />
-                                  <input
-                                    type="text"
-                                    value={searchValue[header.id] || ''}
-                                    onChange={(e) =>
-                                      setSearchValue((prev) => ({
-                                        ...prev,
-                                        [header.id]: e.target.value,
-                                      }))
-                                    }
-                                    placeholder="Search"
-                                    className="w-full px-2 py-1 border rounded bg-[#333] text-[#EBE7CD] max-w-[calc(100%-32px)]"
-                                    style={{ maxWidth: 'calc(100% - 32px)' }}
-                                  />
-                                </div>
-                                <div className="max-h-32 overflow-y-auto mb-2">
-                                  {Array.from(
-                                    new Set(originalData.map((row) => row[header.column.id]))
-                                  )
-                                    .filter((value) =>
-                                      value
-                                        .toString()
-                                        .toLowerCase()
-                                        .includes((searchValue[header.id] || '').toLowerCase())
-                                    )
-                                    .sort((a, b) => {
-                                      if (typeof a === 'string' && typeof b === 'string') {
-                                        return a.localeCompare(b); // Sort alphabetically if strings
-                                      } else if (typeof a === 'number' && typeof b === 'number') {
-                                        return a - b; // Sort numerically if numbers
-                                      }
-                                      return 0;
-                                    })
-                                    .map((value, index) => (
-                                      <div key={index} className="flex items-center">
-                                        <input
-                                          type="checkbox"
-                                          id={`${header.id}-filter-${index}`}
-                                          checked={(pendingFilters[header.id] || []).includes(value)}
-                                          onChange={(e) => {
-                                            const currentFilterValue =
-                                              pendingFilters[header.id] || [];
-                                            const newFilterValue = e.target.checked
-                                              ? [...currentFilterValue, value]
-                                              : currentFilterValue.filter((v) => v !== value);
-                                            setPendingFilters((prev) => ({
-                                              ...prev,
-                                              [header.id]: newFilterValue,
-                                            }));
-                                          }}
-                                          className="mr-2"
-                                        />
-                                        <label htmlFor={`${header.id}-filter-${index}`}>
-                                          {value}
-                                        </label>
-                                      </div>
-                                    ))}
-                                </div>
-                                <div className="flex justify-between mt-2 space-x-0.5">
-                                  <button
-                                    onClick={() => applyFilter(header)}
-                                    className="text-sm bg-blue-400 text-white px-3 py-2 rounded"
-                                  >
-                                    OK
-                                  </button>
-                                  <button
-                                    onClick={() => handleClearFilter(header)}
-                                    className="text-sm bg-red-400 text-white px-3 py-2 rounded"
-                                  >
-                                    Clear
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setFilterVisible(null);
-                                    }}
-                                    className="text-sm bg-gray-400 text-white px-3 py-2 rounded"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
+                                {header.id === 'account_created_at' ? (
+                                  <div className="calendar-container bg-[#1f1f1f] p-2 rounded">
+                                    <DateRangePicker
+                                      ranges={[{
+                                        startDate: dateRange.startDate,
+                                        endDate: dateRange.endDate,
+                                        key: 'selection'
+                                      }]}
+                                      onChange={(range) => setDateRange(range.selection)}
+                                      showDateDisplay={false}
+                                      className="custom-calendar"
+                                      rangeColors={["#1ED760"]}
+                                    />
+                                    <div className="flex justify-between mt-2">
+                                      <button
+                                        onClick={applyDateRangeFilter}
+                                        className="text-sm bg-blue-400 text-white px-3 py-2 rounded"
+                                      >
+                                        Apply
+                                      </button>
+                                      <button
+                                        onClick={() => handleClearFilter(header.id)}
+                                        className="text-sm bg-gray-400 text-white px-3 py-2 rounded"
+                                      >
+                                        Clear
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <div className="max-h-32 overflow-y-auto mb-2">
+                                      {Array.from(new Set(originalData.map(row => row[header.id as keyof UserReportData])))
+                                        .filter(value => value !== undefined)
+                                        .map((value, index) => (
+                                          <div key={index} className="flex items-center">
+                                            <input
+                                              type="checkbox"
+                                              checked={(pendingFilters[header.id] || []).includes(value)}
+                                              onChange={(e) => {
+                                                const currentFilterValues = pendingFilters[header.id] || [];
+                                                const updatedFilterValues = e.target.checked
+                                                  ? [...currentFilterValues, value]
+                                                  : currentFilterValues.filter(v => v !== value);
+                                                setPendingFilters(prev => ({
+                                                  ...prev,
+                                                  [header.id]: updatedFilterValues,
+                                                }));
+                                              }}
+                                              className="mr-2"
+                                            />
+                                            <label>{value}</label>
+                                          </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex justify-between mt-2">
+                                      <button
+                                        onClick={() => applyCheckboxFilter(header.id)}
+                                        className="text-sm bg-blue-400 text-white px-3 py-2 rounded"
+                                      >
+                                        Apply
+                                      </button>
+                                      <button
+                                        onClick={() => handleClearFilter(header.id)}
+                                        className="text-sm bg-gray-400 text-white px-3 py-2 rounded"
+                                      >
+                                        Clear
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
-                        ) : null}
+                        )}
                       </div>
                     </th>
                   ))}

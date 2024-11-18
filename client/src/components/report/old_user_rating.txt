@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate for navigation
+//front end//
+import React, { useState, useEffect } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -12,17 +12,17 @@ import {
 import axios from '../../api/axios';
 import Sidebar from '../../components/sidebar/Sidebar';
 
-interface SongReportData {
-  song_name: string;
-  artist_name: string;
-  total_likes: number;
-  total_plays: number;
+interface UserReportData {
+  user_id: number;
+  username: string;
+  songs_played: number;
+  playlists_created: number;
+  likes_given: number;
 }
 
-const SongRatingReport: React.FC = () => {
-  const navigate = useNavigate(); // Initialize navigate function
-  const [reportData, setReportData] = useState<SongReportData[]>([]);
-  const [originalData, setOriginalData] = useState<SongReportData[]>([]);
+const UserActivityReport: React.FC = () => {
+  const [reportData, setReportData] = useState<UserReportData[]>([]);
+  const [originalData, setOriginalData] = useState<UserReportData[]>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [filterVisible, setFilterVisible] = useState<string | null>(null);
   const [searchValue, setSearchValue] = useState<{ [key: string]: string }>({});
@@ -34,57 +34,64 @@ const SongRatingReport: React.FC = () => {
       const token = localStorage.getItem('token') || '';
 
       try {
-        // Fetch the song ratings from backend API
-        const response = await axios.get('/song-rating', {
+        // Fetch the user activity data from backend API
+        const response = await axios.get('/user-rating', {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         });
 
-        const data: SongReportData[] = response.data;
+        const data: UserReportData[] = response.data;
         setReportData(data);
         setOriginalData(data);
         setErrMsg(null);
       } catch (error: any) {
-        console.error('Error fetching song rating report:', error);
+        console.error('Error fetching user activity report:', error);
         if (error.response && error.response.status === 401) {
           setErrMsg('Unauthorized: Please log in again.');
         } else {
-          setErrMsg('Failed to fetch song rating report.');
+          setErrMsg('Failed to fetch user activity report.');
         }
       }
     };
 
-    // Fetch song ratings when component mounts
+    // Fetch user activity data when component mounts
     fetchData();
   }, []);
 
-  const columns = React.useMemo<ColumnDef<SongReportData>[]>(() => [
+  const columns = React.useMemo<ColumnDef<UserReportData>[]>(() => [
     {
-      accessorKey: 'song_name',
-      header: 'Song Name',
+      accessorKey: 'user_id',
+      header: 'User ID',
       cell: info => info.getValue(),
       filterFn: 'includesString',
       enableColumnFilter: true,
     },
     {
-      accessorKey: 'artist_name',
-      header: 'Artist Name',
+      accessorKey: 'username',
+      header: 'Username',
       cell: info => info.getValue(),
       filterFn: 'includesString',
       enableColumnFilter: true,
     },
     {
-      accessorKey: 'total_likes',
-      header: 'Total Likes',
-      cell: info => info.getValue(),
-      filterFn: 'includesString',
-      enableColumnFilter: true,
-    },
-    {
-      accessorKey: 'total_plays',
+      accessorKey: 'songs_played',
       header: 'Total Plays',
+      cell: info => info.getValue(),
+      filterFn: 'includesString',
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: 'playlists_created',
+      header: 'Playlists Created',
+      cell: info => info.getValue(),
+      filterFn: 'includesString',
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: 'likes_given',
+      header: 'Total Likes',
       cell: info => info.getValue(),
       filterFn: 'includesString',
       enableColumnFilter: true,
@@ -140,15 +147,7 @@ const SongRatingReport: React.FC = () => {
     <div className="flex min-h-screen">
       <Sidebar /> {/* Sidebar on the left */}
       <div className="bg-[#121212] text-[#EBE7CD] p-8 flex-grow font-sans">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-semibold">Song Rating Report</h1>
-          <button
-            onClick={() => navigate('/admin')}
-            className="bg-[#4a8f4f] text-[#FAF5CE] px-4 py-2 rounded hover:bg-[#5aa55f] transition-colors"
-          >
-            Return to Admin Dashboard
-          </button>
-        </div>
+        <h1 className="text-3xl font-semibold mb-8">User Activity Report</h1>
 
         {/* Error Message */}
         {errMsg && (
@@ -305,4 +304,45 @@ const SongRatingReport: React.FC = () => {
   );
 };
 
-export default SongRatingReport;
+export default UserActivityReport;
+
+//back-end//
+router.get('/user-rating', async (req, res) => {
+  try {
+    const pool = await sql.connect('your-database-connection-string');
+    const result = await pool.request().query(`
+      WITH UserPlays AS (
+          SELECT user_id, COUNT(song_id) AS songs_played
+          FROM dbo.SongPlayHistory
+          GROUP BY user_id
+      ),
+      UserPlaylists AS (
+          SELECT user_id, COUNT(playlist_id) AS playlists_created
+          FROM dbo.Playlist
+          GROUP BY user_id
+      ),
+      UserLikes AS (
+          SELECT user_id, COUNT(song_id) AS likes_given
+          FROM dbo.Likes
+          GROUP BY user_id
+      )
+      
+      SELECT 
+          u.user_id,
+          u.username,
+          u.display_name,
+          ISNULL(up.songs_played, 0) AS songs_played,
+          ISNULL(ul.likes_given, 0) AS likes_given,
+          ISNULL(upc.playlists_created, 0) AS playlists_created
+      FROM dbo.[User] u
+      LEFT JOIN UserPlays up ON u.user_id = up.user_id
+      LEFT JOIN UserLikes ul ON u.user_id = ul.user_id
+      LEFT JOIN UserPlaylists upc ON u.user_id = upc.user_id
+      ORDER BY u.user_id;
+    `);
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    console.error('Error fetching user activity report:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});

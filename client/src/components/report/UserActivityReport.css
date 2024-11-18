@@ -1,0 +1,101 @@
+/* Overall Calendar Backgrounds */
+.custom-calendar .rdrCalendarWrapper,
+.custom-calendar .rdrMonth,
+.custom-calendar .rdrDateRangePickerWrapper {
+  background-color: #000000 !important;
+}
+
+/* Style for the left panel boxes in the date range picker */
+.custom-calendar .rdrDefinedRangesWrapper,
+.custom-calendar .rdrStaticRange,
+.custom-calendar .rdrStaticRangeLabel {
+  background-color: #000000 !important; /* Black background for each range option */
+  color: #ffffff !important; /* White text for each range label */
+  border: none !important; /* Remove any borders */
+}
+
+/* Change hover effect for the left panel boxes */
+.custom-calendar .rdrStaticRange:hover {
+  background-color: #1a1a1a !important; /* Darker black on hover */
+}
+
+/* Adjust label color to ensure consistency */
+.custom-calendar .rdrStaticRangeLabel {
+  color: #ffffff !important; /* White text for labels */
+}
+
+/* Remove gaps between days */
+.custom-calendar .rdrDay {
+  border: none !important;
+  padding: 0 !important; /* Remove any extra padding that could cause gaps */
+}
+
+/* Day Number Styling */
+.custom-calendar .rdrDayNumber span {
+  color: #ffffff !important; /* White text for day numbers */
+  background-color: transparent !important; /* Ensure no background color around numbers */
+}
+
+/* Selected and Previewed Days */
+.custom-calendar .rdrDaySelected,
+.custom-calendar .rdrDayStartPreview,
+.custom-calendar .rdrDayEndPreview {
+  border-radius: 0 !important; /* Remove any radius that could cause spacing */
+  box-shadow: none !important;
+}
+
+.custom-calendar .rdrDaySelected .rdrDayNumber span,
+.custom-calendar .rdrDayStartPreview .rdrDayNumber span,
+.custom-calendar .rdrDayEndPreview .rdrDayNumber span {
+  background-color: #1ED760 !important; /* Green background for selected/previewed days */
+  color: #000000 !important; /* Black text for contrast on green */
+}
+
+/* Input Fields in Custom Range */
+.custom-calendar .rdrStaticRange .rdrInputRange,
+.custom-calendar .rdrStaticRange .rdrInput {
+  background-color: #000000 !important; /* Black background for input fields */
+  color: #ffffff !important; /* White text for input fields */
+  border: 1px solid #333333 !important; /* Gray border */
+}
+
+/* Date Display Inputs */
+.custom-calendar .rdrDateDisplayItem input {
+  background-color: #000000 !important; /* Black background for date input */
+  color: #ffffff !important; /* White text for date input */
+  border: 1px solid #333333 !important; /* Gray border */
+}
+
+/* Month and Year Dropdown Styling */
+.custom-calendar .rdrMonthAndYearPickers select,
+.custom-calendar .rdrMonthPicker,
+.custom-calendar .rdrYearPicker {
+  background-color: #000000 !important; /* Black dropdown */
+  color: #ffffff !important; /* White text */
+  border: none; /* Remove border if any */
+}
+
+/* Passive Days (Days from Other Months) */
+.custom-calendar .rdrDayPassive .rdrDayNumber span {
+  color: #666666 !important; /* Grey out days from other months */
+}
+
+/* Hover effect for days */
+.custom-calendar .rdrDayStartPreview,
+.custom-calendar .rdrDayInPreview,
+.custom-calendar .rdrDayEndPreview,
+.custom-calendar .rdrDaySelected {
+  border: none !important; /* Ensure no extra borders around date cells */
+}
+
+/* Button Styling */
+.custom-calendar button {
+  background-color: #000000 !important; /* Black button background */
+  color: #ffffff !important; /* White button text */
+  border: 1px solid #ffffff !important; /* White border for buttons */
+}
+
+/* Hover effect for Apply and Clear buttons */
+.custom-calendar button:hover {
+  background-color: #1a1a1a !important;
+}
