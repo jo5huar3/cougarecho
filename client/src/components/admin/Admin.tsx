@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, Home, Settings, Menu, PlusCircle, User, Edit2, Loader, X, Music, LogOut, Users, Mic, Music2 } from 'lucide-react';
 import Photo from '../photo/Photo';
@@ -19,6 +20,7 @@ const Admin: React.FC = () => {
   const [adminProfile, setAdminProfile] = useState<AdminProfile>({ user_id: '', name: '', playlists: 0 });
   const [activityStats, setActivityStats] = useState<ActivityStats>({
     totalListeners: 0,
+
     totalArtists: 0,
     totalSongs: 0
   });
@@ -27,6 +29,7 @@ const Admin: React.FC = () => {
   const [isMenuExpanded, setIsMenuExpanded] = useState<boolean>(false);
   const [searchValue, setSearchValue] = useState<string>('');
   const [showReportDropdown, setShowReportDropdown] = useState<boolean>(false);
+
 
   const navigate = useNavigate();
 
@@ -55,6 +58,7 @@ const Admin: React.FC = () => {
         // Debug logs
         console.log('Profile Data:', profileData);
         console.log('Stats Data:', statsData);
+
       } catch (err) {
         setError('Failed to fetch data. Please try again later.');
         console.error('Error fetching data:', err);
@@ -64,11 +68,13 @@ const Admin: React.FC = () => {
     };
 
     fetchData();
+
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('userToken');
     sessionStorage.clear();
+
     navigate('/#', {
       state: {
         showLogoutMessage: true,
@@ -96,6 +102,7 @@ const Admin: React.FC = () => {
     }
   };
 
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-[#121212]">
@@ -115,6 +122,7 @@ const Admin: React.FC = () => {
   return (
     <div className="bg-[#121212] text-[#EBE7CD] min-h-screen flex font-sans">
       {/* Sidebar */}
+
       <div className={`w-16 flex flex-col items-center py-4 bg-black border-r border-gray-800 transition-all duration-300 ease-in-out ${isMenuExpanded ? 'w-64' : 'w-16'}`}>
         <div className="flex flex-col items-center space-y-4 mb-8">
           <button 
@@ -196,6 +204,7 @@ const Admin: React.FC = () => {
           </div>
         </div>
 
+
         {/* Profile section */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
@@ -254,6 +263,7 @@ const Admin: React.FC = () => {
           </div>
         </div>
 
+
         {/* Activity Stats */}
         <div>
           <h3 className="text-xl font-bold mb-4">Platform Activity</h3>
@@ -288,6 +298,7 @@ const Admin: React.FC = () => {
           </div>
         </div>
       </div>
+
     </div>
   );
 };
