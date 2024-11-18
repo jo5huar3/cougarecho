@@ -357,6 +357,7 @@ router.post("/album-insert", upload.single('img'), async function (req, res) {
     }
   }
 });
+
 // Connection is successfull
 router.post("/artist/profile/update", async (req, res) => {
   try {
@@ -1246,5 +1247,60 @@ router.delete('/user/delete/:user_id', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+//edit end
+
+//admin start Yeni
+
+router.get('/admin-profile', async (req, res) => {
+  try {
+    // Example query to fetch admin profile data
+    const query = `
+      SELECT 
+        U.user_id, 
+        U.display_name AS name, 
+        (SELECT COUNT(*) FROM Playlist WHERE user_id = U.user_id) AS playlists
+      FROM [User] U
+      WHERE U.role_id = 3 -- Assuming role_id = 3 means Admin
+    `;
+
+    const request = new sql.Request();
+    const result = await request.query(query);
+
+    if (result.recordset.length > 0) {
+      res.json(result.recordset[0]); // Return admin profile data
+    } else {
+      res.status(404).json({ error: 'Admin profile not found' });
+    }
+  } catch (err) {
+    console.error('Error fetching admin profile:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/activity-stats', async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        (SELECT COUNT(*) FROM [User] WHERE role_id = 1) AS totalListeners, -- Assuming role_id = 1 means Listener
+        (SELECT COUNT(*) FROM [Artist]) AS totalArtists,
+        (SELECT COUNT(*) FROM [Song]) AS totalSongs
+    `;
+
+    const request = new sql.Request();
+    const result = await request.query(query);
+
+    if (result.recordset.length > 0) {
+      res.json(result.recordset[0]); // Return stats
+    } else {
+      res.status(404).json({ error: 'Stats not found' });
+    }
+  } catch (err) {
+    console.error('Error fetching activity stats:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
 export default router;
 

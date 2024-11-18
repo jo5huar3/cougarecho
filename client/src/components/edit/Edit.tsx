@@ -5,6 +5,13 @@ import axios from '../../api/axios';
 import { UserContext } from '../../context/UserContext';
 import Sidebar from '../../components/sidebar/Sidebar'; // Import Sidebar component
 
+// Simple Alert Component
+const CustomAlert = ({ message, type }) => (
+  <div className={`p-4 rounded-md ${type === 'success' ? 'bg-green-700' : 'bg-red-700'} text-white`}>
+    {message}
+  </div>
+);
+
 const UserProfileSettings = () => {
   const navigate = useNavigate();
   const { user, setUser } = useContext(UserContext);
@@ -89,6 +96,7 @@ const UserProfileSettings = () => {
   const handleNameChange = async () => {
     if (!displayName.trim()) {
       setError('Display name cannot be empty');
+      setTimeout(() => setError(''), 3000);
       return;
     }
 
@@ -100,9 +108,11 @@ const UserProfileSettings = () => {
       );
 
       setSuccessMessage('Display name updated successfully!');
+      setError('');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       setError(err.response?.data?.error || 'Error updating display name');
+      setSuccessMessage('');
       setTimeout(() => setError(''), 3000);
     }
   };
@@ -110,6 +120,7 @@ const UserProfileSettings = () => {
   const handleUsernameChange = async () => {
     if (!oldUsername || !newUsername) {
       setError('Please fill in both username fields');
+      setTimeout(() => setError(''), 3000);
       return;
     }
 
@@ -125,12 +136,14 @@ const UserProfileSettings = () => {
       );
 
       setSuccessMessage('Username changed successfully!');
+      setError('');
       setOldUsername('');
       setNewUsername('');
       setUser({ ...user, username: newUsername });
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       setError(err.response?.data?.error || 'Error updating username');
+      setSuccessMessage('');
       setTimeout(() => setError(''), 3000);
     }
   };
@@ -152,6 +165,7 @@ const UserProfileSettings = () => {
       });
     } catch (err) {
       setError(err.response?.data?.error || 'Error deleting account');
+      setTimeout(() => setError(''), 3000);
       setShowDeleteConfirmation(false);
     }
   };
@@ -170,20 +184,21 @@ const UserProfileSettings = () => {
       <Sidebar handleCreatePlaylist={handleCreatePlaylist} handleLogout={handleLogout} />
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col p-4">
+      <div className="flex-1 flex flex-col p-4 ml-16">
         <div className="max-w-md mx-auto w-full space-y-6 mt-8">
           <div className="text-3xl font-bold mb-8">{user.username}</div>
 
-          {successMessage && (
-            <Alert className="bg-green-700 border-green-600">
-              <AlertDescription>{successMessage}</AlertDescription>
-            </Alert>
-          )}
-          
-          {error && (
-            <Alert className="bg-red-700 border-red-600">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+          {/* Message Display Section */}
+          {(successMessage || error) && (
+            <div className="fixed top-4 right-4 left-4 md:left-auto md:w-96 z-50">
+              {successMessage && (
+                <CustomAlert message={successMessage} type="success" />
+              )}
+              
+              {error && (
+                <CustomAlert message={error} type="error" />
+              )}
+            </div>
           )}
 
           {/* Name Change Section */}
@@ -206,7 +221,7 @@ const UserProfileSettings = () => {
             </div>
           </div>
 
-          {/* Change Username Section */}
+          {/* Username Change Section */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold">Change Username</h2>
             <input
@@ -244,6 +259,7 @@ const UserProfileSettings = () => {
             </p>
           </div>
 
+          {/* Delete Confirmation Modal */}
           {showDeleteConfirmation && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-[#2A2A2A] p-6 rounded-lg max-w-sm w-full mx-4">

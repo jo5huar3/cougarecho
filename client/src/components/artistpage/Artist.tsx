@@ -6,6 +6,7 @@ import axios from '../../api/axios';
 import Photo from '../photo/Photo'; // Adjust path as needed
 import Sidebar from '../../components/sidebar/Sidebar';  
 
+
 // Mock API
 const mockApi = {
   fetchArtistProfile: () => new Promise(resolve =>
