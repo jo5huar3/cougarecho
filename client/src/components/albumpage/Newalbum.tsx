@@ -3,7 +3,6 @@ import { Search, Home, Settings, Menu, User, PlusCircle, X, Music, LogOut, Uploa
 import { Link } from 'react-router-dom';
 import axios from '../../api/axios';
 import { UserContext } from '../../context/UserContext';
-
 interface UploadedAlbum {
   name: string;
   songCount: number;
@@ -36,7 +35,7 @@ const UploadPage: React.FC = () => {
     songCount: 0,
     streams: 0,
     likesSaves: 0,
-    revenue: 0
+    revenue: 0,
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -80,16 +79,16 @@ const UploadPage: React.FC = () => {
     }
   };
 
-
-  const handleUpload = async (e: React.FormEvent): Promise<void> => {
+  const handleUpload = async (e): Promise<void> => {
     e.preventDefault();
-    console.log("user_id: ", user.user_id)
+    console.log('user_id: ', user.user_id);
 
     try {
       const albFormData = new FormData();
-      albFormData.append('albumName', albumName)
-      albFormData.append('user_id', user.user_id)
-      albFormData.append('img', albumCover)
+      albFormData.append('albumName', albumName);
+      albFormData.append('user_id', user.user_id);
+      if (albumCover) albFormData.append('img', albumCover);
+
       const alb_response = await axios.post('/album-insert', albFormData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -97,7 +96,8 @@ const UploadPage: React.FC = () => {
       });
 
       const album_id = alb_response?.data?.album_id;
-      console.log("album_id: ", album_id)
+      console.log('album_id: ', album_id);
+
       if (album_id) {
         for (const song of songs) {
           try {
@@ -111,23 +111,34 @@ const UploadPage: React.FC = () => {
                 'Content-Type': 'multipart/form-data',
               },
             });
-          } catch (err) {
-            console.log(err.message)
+          } catch (songError) {
+            console.error('Song upload error:', songError);
+            if (songError.response && songError.response.status === 403) {
+              alert(`ERROR: ${songError.response.data.error}`);
+              return;
+            }
+            setMessage('Error uploading one or more songs. Please try again.');
           }
         }
       }
+
       setIsUploaded(true);
       setUploadedAlbum({
         name: albumName,
         songCount: songs.length,
         streams: 0,
         likesSaves: 0,
-        revenue: 0
+        revenue: 0,
       });
-      setMessage('Album successfully uploaded and stored in the database.');
+      alert('Album successfully uploaded.');
 
-    } catch (err) {
-      console.log(err.message);
+    } catch (albumError) {
+      console.error('Album upload error:', albumError);
+      if (albumError.response && albumError.response.status === 403) {
+        alert(`ERROR: ${albumError.response.data.error}`);
+      } else {
+        alert('Error uploading album. Please try again.');
+      }
     }
   };
 
@@ -142,8 +153,8 @@ const UploadPage: React.FC = () => {
         </div>
         <div className="flex-grow"></div>
         <div className="mt-auto flex flex-col items-center space-y-4 mb-4">
-          <button onClick={handleCreatePlaylist} className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-[#EBE7CD] hover:text-white" aria-label="Add">
-            <PlusCircle className="w-6 h-6" />
+          <button onClick={() => fileInputRef.current?.click()} className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-[#EBE7CD] hover:text-white" aria-label="Upload">
+            <Upload className="w-6 h-6" />
           </button>
           <Link to="/useredit" aria-label="User Profile" className="text-[#1ED760] hover:text-white">
             <User className="w-6 h-6" />
@@ -163,7 +174,6 @@ const UploadPage: React.FC = () => {
                 <li><Link to="/homepage" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Home className="w-5 h-5 mr-3" /> Home</Link></li>
                 <li><Link to="/search" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Search className="w-5 h-5 mr-3" /> Search</Link></li>
                 <li><Link to="/userlibrary" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Music className="w-5 h-5 mr-3" /> Your Library</Link></li>
-                <li><button onClick={handleCreatePlaylist} className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><PlusCircle className="w-5 h-5 mr-3" /> Create Playlist</button></li>
               </ul>
             </nav>
             <div className="mt-auto">
@@ -180,33 +190,9 @@ const UploadPage: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        {/* Top bar */}
-        <div className="bg-[#121212] p-4 flex justify-between items-center">
-          <div className="flex-1 max-w-xl">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search by song or artist"
-                className="w-full bg-[#2A2A2A] rounded-full py-2 pl-10 pr-4 text-sm text-[#EBE7CD]"
-              />
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            </div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Link to="/home" className="text-[#1ED760] hover:text-white">
-              <Home className="w-6 h-6" />
-            </Link>
-            <Link to="/settings" className="text-[#1ED760] hover:text-white">
-              <Settings className="w-6 h-6" />
-            </Link>
-          </div>
-        </div>
-
-        {/* Upload Content or Uploaded Album View */}
         <div className="flex-1 p-8">
           <div className="bg-[#1A1A1A] rounded-lg p-6 max-w-2xl mx-auto">
             {!isUploaded ? (
-              // Upload Form
               <>
                 <div className="flex items-start space-x-6 mb-6">
                   <div
@@ -282,7 +268,6 @@ const UploadPage: React.FC = () => {
                 </button>
               </>
             ) : (
-              // Uploaded Album View
               <>
                 <div className="mb-8 flex items-center justify-between">
                   <div className="flex items-center">

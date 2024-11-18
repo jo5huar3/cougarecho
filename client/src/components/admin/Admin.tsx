@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, Home, Settings, Menu, PlusCircle, User, Edit2, Loader, X, Music, LogOut, Users, Mic, Music2 } from 'lucide-react';
 import Photo from '../photo/Photo';
+
 
 const Admin = () => {
   const [adminProfile, setAdminProfile] = useState({ name: '', playlists: 0 });
@@ -12,6 +14,7 @@ const Admin = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+
   const [isMenuExpanded, setIsMenuExpanded] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [showReportDropdown, setShowReportDropdown] = useState(false);
@@ -41,6 +44,7 @@ const Admin = () => {
       setIsLoading(true);
       setError(null);
       try {
+
         const [profileData, statsData] = await Promise.all([
           fetchAdminProfile(),
           fetchActivityStats(),
@@ -56,11 +60,13 @@ const Admin = () => {
     };
 
     fetchData();
+
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('userToken');
     sessionStorage.clear();
+
     navigate('/#', {
       state: {
         showLogoutMessage: true,
@@ -86,11 +92,12 @@ const Admin = () => {
     const value = e.target.value;
     setSearchValue(value);
     if (value.length > 0) {
-      navigate(`/search?q=${encodeURIComponent(value)}`, { replace: true });
+      navigate(`/search?keyword=${encodeURIComponent(value)}`, { replace: true });
     } else {
       navigate('/admin', { replace: true });
     }
   };
+
 
   if (isLoading) {
     return (
@@ -111,6 +118,7 @@ const Admin = () => {
   return (
     <div className="bg-[#121212] text-[#EBE7CD] min-h-screen flex font-sans">
       {/* Sidebar */}
+
       <div className={`w-16 flex flex-col items-center py-4 bg-black border-r border-gray-800 transition-all duration-300 ease-in-out ${isMenuExpanded ? 'w-64' : 'w-16'}`}>
         <div className="flex flex-col items-center space-y-4 mb-8">
           <button onClick={() => setIsMenuExpanded(!isMenuExpanded)} className="text-[#1ED760] hover:text-white" aria-label="Menu">
@@ -184,6 +192,7 @@ const Admin = () => {
           </div>
         </div>
 
+
         {/* Profile section */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
@@ -242,6 +251,7 @@ const Admin = () => {
           </div>
         </div>
 
+
         {/* Activity Stats */}
         <div>
           <h3 className="text-xl font-bold mb-4">Platform Activity</h3>
@@ -270,6 +280,7 @@ const Admin = () => {
           </div>
         </div>
       </div>
+
     </div>
   );
 };

@@ -307,40 +307,71 @@ router.post("/song-insert", upload.single('song'), async function (req, res, nex
     //console.log('Transaction rolled back.')
   }
 })
-// NewAblum page: add album endpoint
-// Begin /album-insert
-router.post("/album-insert", upload.single('img'), async function (req, res, next) {
+
+
+// Album upload endpoint
+router.post("/album-insert", upload.single('img'), async function (req, res) {
   try {
-    const user_id = req?.body?.user_id
+    const user_id = req?.body?.user_id;
     const file = req?.file;
-    const album_name = req?.body?.albumName
-    console.log("user_id: " + user_id + ", album_name: " + album_name)
+    const album_name = req?.body?.albumName;
+
+    console.log("user_id:", user_id, ", album_name:", album_name);
     if (!file || !user_id || !album_name) {
-      return res.status(400).json({ error: "File upload failed. No file received." });
+      return res.status(400).json({ error: "File upload failed. Required fields missing." });
     }
+
     const filePath = file.path;
     const fileBuffer = fs.readFileSync(filePath);
-    const albRequest = new sql.Request();
-    albRequest.input('user_id', sql.Int, user_id)
-    albRequest.input('album_name', sql.VarChar, album_name)
-    albRequest.input('album_cover', sql.VarBinary(sql.MAX), fileBuffer)
-    const albResult = await albRequest.query(
-      'INSERT INTO [Album]  (create_at, update_at, artist_id, album_name, album_cover) \
-       OUTPUT inserted.artist_id, inserted.album_id \
-       VALUES ( GETDATE(), GETDATE(), (SELECT A.artist_id FROM [Artist] A WHERE A.user_id = @user_id), @album_name, @album_cover)');
-    if (albResult?.rowsAffected[0] == 1) {
-      console.log(albResult?.recordset?.[0], 'Succsessful upload into DB.')
+    const request = new sql.Request();
+
+    request.input('user_id', sql.Int, user_id);
+    request.input('album_name', sql.VarChar, album_name);
+    request.input('album_cover', sql.VarBinary(sql.MAX), fileBuffer);
+
+    console.log("Inserting album...");
+    
+    const result = await request.query(`
+      DECLARE @InsertedAlbum TABLE (album_id INT);
+      INSERT INTO [Album] (create_at, update_at, artist_id, album_name, album_cover)
+      OUTPUT inserted.album_id INTO @InsertedAlbum
+      VALUES (GETDATE(), GETDATE(), 
+              (SELECT A.artist_id FROM [Artist] A WHERE A.user_id = @user_id), 
+              @album_name, @album_cover);
+      SELECT album_id FROM @InsertedAlbum;
+    `);
+
+    const album_id = result?.recordset[0]?.album_id;
+    if (album_id) {
+      fs.unlinkSync(filePath);
+      console.log("Album upload successful");
+      return res.json({ album_id });
+    } else {
+      return res.status(500).json({ error: "Album upload failed." });
     }
-    //const artist_id = albResult.recordset?.[0].artist_id;
-    const album_id = albResult.recordset?.[0].album_id;
-    fs.unlinkSync(filePath);
-    return res.json({ album_id })
+  } catch (err) {
+    console.log("Full error:", err);
+
+    // Check for the specific trigger error based on the error message
+    let errorMessage = err.message;
+
+    // Check if precedingErrors contains the trigger's custom error message
+    if (err.precedingErrors && err.precedingErrors.length > 0) {
+      const customError = err.precedingErrors.find(error =>
+        error.message.includes("Unverified artists can only create one album per day")
+      );
+      if (customError) {
+        errorMessage = customError.message;
+      }
+    }
+
+    if (errorMessage.includes("Unverified artists can only create one album per day")) {
+      return res.status(403).json({ error: "Unverified artists can only create one album per day." });
+    } else {
+      return res.status(500).json({ error: errorMessage });
+    }
   }
-  catch (err) {
-    console.log("ERROR: ", err.message);
-    return res.status(500)
-  }
-})
+});
 
 // Connection is successfull
 router.post("/artist/profile/update", async (req, res) => {
@@ -433,34 +464,68 @@ router.get('/register/:username', async (req, res) => {
 // Begin /register
 router.post("/register", async (req, res) => {
   try {
-    const { username, password, role_id } = req.body;
-    if (!role_id || !password || !username) {
-      return res.status(400).json({ error: "All fields are required." });
+    const { username, password, role_id, country, bio } = req.body;
+
+    // Role mapping
+    let numericRoleId;
+    if (typeof role_id === 'string') {
+      if (role_id.toLowerCase() === 'artist') {
+        numericRoleId = 2;
+      } else if (role_id.toLowerCase() === 'listener') {
+        numericRoleId = 1;
+      } else {
+        return res.status(400).json({ error: 'Invalid role specified.' });
+      }
+    } else {
+      numericRoleId = parseInt(role_id, 10);
+    }
+
+    if (!numericRoleId || !password || !username) {
+      return res.status(400).json({ error: 'All fields are required.' });
     }
 
     const password_hash = await bcrypt.hash(password, 4);
+
     const myQuery = `
           INSERT INTO [User] (username, password_hash, created_at, role_id)
           OUTPUT inserted.user_id, inserted.username, inserted.role_id
           VALUES (@user_name, @password_hash, GETDATE(), @role_id)`;
 
     const request = new sql.Request();
-    request.input("user_name", sql.NVarChar, username);
-    request.input("password_hash", sql.NVarChar, password_hash);
-    request.input("role_id", sql.Int, role_id); // Pass role_id directly
+    request.input('user_name', sql.NVarChar, username);
+    request.input('password_hash', sql.NVarChar, password_hash);
+    request.input('role_id', sql.Int, numericRoleId);
 
     const result = await request.query(myQuery);
 
     if (result?.rowsAffected[0] == 1) {
+      const user_id = result.recordset[0].user_id;
+
+      // If the user role is "Artist" (role_id = 2), add them to the Artist table
+      if (numericRoleId === 2) {
+        const artistQuery = `
+          INSERT INTO [Artist] (user_id, artist_name, country, bio, created_at, isVerified)
+          VALUES (@user_id, @artist_name, @country, @bio, GETDATE(), 0)`;
+
+        const artistRequest = new sql.Request();
+        artistRequest.input('user_id', sql.Int, user_id);
+        artistRequest.input('artist_name', sql.NVarChar, username);
+        artistRequest.input('country', sql.NVarChar, country || 'Unknown');
+        artistRequest.input('bio', sql.NVarChar, bio || 'No biography provided');
+
+        await artistRequest.query(artistQuery);
+      }
+
       const token = jwt.sign(
         {
-          user_id: result.recordset[0].user_id,
-          username: result.recordset[0].username,
+          user_id: user_id,
+          user_name: result.recordset[0].username,
           role_id: result.recordset[0].role_id,
         },
         SECRET_KEY,
         { expiresIn: "1h" }
       );
+
       res.json({ token });
     } else {
       res.json({ error: "Database server did not return anything." });
@@ -469,6 +534,8 @@ router.post("/register", async (req, res) => {
     res.json({ error: error.message });
   }
 });
+
+
 // End /register
 
 // End Josh Lewis
@@ -505,7 +572,7 @@ router.get('/songs/search', async (req, res) => {
     request.input('keyword', sql.NVarChar, `%${keyword}%`);
 
     const result = await request.query(`
-      SELECT TOP 10
+      SELECT 
           s.song_id, 
           s.song_name, 
           s.duration, 
@@ -533,6 +600,210 @@ router.get('/songs/search', async (req, res) => {
       error: 'Error searching songs',
       details: error.message
     });
+  }
+});
+
+router.get('/user-rating', async (req, res) => {
+  try {
+    const pool = await sql.connect('your-database-connection-string');
+    const result = await pool.request().query(`
+      WITH UserPlays AS (
+          SELECT user_id, COUNT(song_id) AS songs_played
+          FROM dbo.SongPlayHistory
+          GROUP BY user_id
+      ),
+      UserPlaylists AS (
+          SELECT user_id, COUNT(playlist_id) AS playlists_created
+          FROM dbo.Playlist
+          GROUP BY user_id
+      ),
+      UserLikes AS (
+          SELECT user_id, COUNT(song_id) AS likes_given
+          FROM dbo.Likes
+          GROUP BY user_id
+      )
+      
+      SELECT 
+          u.user_id,
+          u.username,
+          u.display_name,
+          ISNULL(up.songs_played, 0) AS songs_played,
+          ISNULL(ul.likes_given, 0) AS likes_given,
+          ISNULL(upc.playlists_created, 0) AS playlists_created
+      FROM dbo.[User] u
+      LEFT JOIN UserPlays up ON u.user_id = up.user_id
+      LEFT JOIN UserLikes ul ON u.user_id = ul.user_id
+      LEFT JOIN UserPlaylists upc ON u.user_id = upc.user_id
+      ORDER BY u.user_id;
+    `);
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    console.error('Error fetching user activity report:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/song-rating', async (req, res) => {
+  try {
+    const pool = await sql.connect('your-database-connection-string');
+    const results = await pool.request().query(`
+      SELECT 
+          s.song_name,
+          a.artist_name,
+          COALESCE(COUNT(DISTINCT l.user_id), 0) AS total_likes,
+          COALESCE(COUNT(DISTINCT ph.user_id), 0) AS total_plays
+      FROM 
+          dbo.Song s
+      LEFT JOIN 
+          dbo.Likes l ON s.song_id = l.song_id
+      LEFT JOIN 
+          dbo.SongPlayHistory ph ON s.song_id = ph.song_id
+      LEFT JOIN 
+          dbo.Artist a ON s.artist_id = a.artist_id
+      GROUP BY 
+          s.song_name, a.artist_name
+      ORDER BY 
+          total_likes DESC, total_plays DESC;
+    `);
+    res.status(200).json(results.recordset);
+  } catch (error) {
+    console.error('Error fetching song rating report:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/artist-rating', async (req, res) => {
+  try {
+      const pool = await sql.connect('your-database-connection-string');
+      console.log("Database connection established");
+
+      const results = await pool.request().query(`
+          WITH ArtistSongCounts AS (
+              SELECT 
+                  s.artist_id,
+                  COUNT(s.song_id) AS total_songs
+              FROM 
+                  Song s
+              GROUP BY 
+                  s.artist_id
+          ),
+          ArtistAlbumCounts AS (
+              SELECT 
+                  a.artist_id,
+                  COUNT(DISTINCT alb.album_id) AS total_albums
+              FROM 
+                  Album alb
+              JOIN 
+                  Artist a ON alb.artist_id = a.artist_id
+              GROUP BY 
+                  a.artist_id
+          ),
+          ArtistLikeCounts AS (
+              SELECT 
+                  s.artist_id,
+                  COUNT(l.song_id) AS total_likes
+              FROM 
+                  Likes l
+              JOIN 
+                  Song s ON l.song_id = s.song_id
+              GROUP BY 
+                  s.artist_id
+          )
+          
+          SELECT 
+              a.artist_id,
+              a.artist_name,
+              COALESCE(ascnt.total_songs, 0) AS total_songs,
+              COALESCE(aac.total_albums, 0) AS total_albums,
+              COALESCE(alc.total_likes, 0) AS total_likes
+          FROM 
+              Artist a
+          LEFT JOIN 
+              ArtistSongCounts ascnt ON a.artist_id = ascnt.artist_id
+          LEFT JOIN 
+              ArtistAlbumCounts aac ON a.artist_id = aac.artist_id
+          LEFT JOIN 
+              ArtistLikeCounts alc ON a.artist_id = alc.artist_id
+          ORDER BY 
+              total_likes DESC;
+      `);
+
+      console.log("Artist summary report data:", results.recordset);
+      res.json(results.recordset); // Send data as JSON response
+  } catch (error) {
+      console.error('Error fetching artist summary report:', error);
+      res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+//notifications
+router.get('/artist/:artist_id/notifications', async (req, res) => {
+  try {
+    const artist_id = req.params.artist_id;
+    const request = new sql.Request();
+    request.input('artist_id', sql.Int, artist_id);
+
+    const query = `
+      SELECT id, type, message, timestamp, count, urgent
+      FROM ArtistNotifications
+      WHERE artist_id = @artist_id
+      ORDER BY timestamp DESC
+    `;
+
+    const result = await request.query(query);
+
+    if (result.recordset.length > 0) {
+      res.status(200).json(result.recordset);
+    } else {
+      res.status(404).json({ message: "No notifications found for this artist." });
+    }
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+// In your api.js file
+router.get('/artist-id/:user_id', async (req, res) => {
+  try {
+    const user_id = req.params.user_id;
+    const request = new sql.Request();
+    request.input('user_id', sql.Int, user_id);
+
+    const query = `
+      SELECT artist_id
+      FROM Artist
+      WHERE user_id = @user_id
+    `;
+
+    const result = await request.query(query);
+    if (result.recordset.length > 0) {
+      res.json(result.recordset[0]);
+    } else {
+      res.status(404).json({ message: "Artist not found" });
+    }
+  } catch (error) {
+    console.error("Error fetching artist ID:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+router.put('/artist/:artist_id/notifications/mark-read', async (req, res) => {
+  try {
+    const artist_id = req.params.artist_id;
+    const request = new sql.Request();
+    request.input('artist_id', sql.Int, artist_id);
+
+    // Update query to mark notifications as read by setting count to 0
+    const query = `
+      UPDATE ArtistNotifications
+      SET count = 0
+      WHERE artist_id = @artist_id
+    `;
+
+    await request.query(query);
+    res.status(200).json({ message: "All notifications marked as read." });
+  } catch (error) {
+    console.error("Error marking notifications as read:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 //End Thinh Bui

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
+import axios from '../../api/axios'; // Ensure axios is properly configured to interact with your backend
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Home, Settings, Menu, PlusCircle, User, X, Music, LogOut } from 'lucide-react';
+import { Search, Home, Settings, Menu, User, X, LogOut } from 'lucide-react';
 
-
-const CreateAdmin = () => {
+const CreateAdmin: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -12,31 +12,33 @@ const CreateAdmin = () => {
   const [isMenuExpanded, setIsMenuExpanded] = useState(false);
   const navigate = useNavigate();
 
-  const validatePassword = (password) => {
+  // Password validation function
+  const validatePassword = (password: string): string | null => {
     const minLength = 8;
     const hasCapital = /[A-Z]/.test(password);
     const hasNumber = /[0-9]/.test(password);
     const hasSpecial = /[!@#$%^&*]/.test(password);
-    
+
     if (password.length < minLength) {
-      return "Password must be at least 8 characters long";
+      return 'Password must be at least 8 characters long';
     }
     if (!hasCapital) {
-      return "Password must contain at least one capital letter!";
+      return 'Password must contain at least one capital letter!';
     }
     if (!hasNumber) {
-      return "Password must contain at least one number";
+      return 'Password must contain at least one number';
     }
     if (!hasSpecial) {
-      return "Password must contain at least one special character (!@#$%^&*)";
+      return 'Password must contain at least one special character (!@#$%^&*)';
     }
     return null;
   };
 
-  const handleCreateAdmin = async (e) => {
+  // Handler to create admin account
+  const handleCreateAdmin = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
-    
-    // Reset messages
+
+    // Reset error and success messages
     setError('');
     setSuccessMessage('');
 
@@ -54,38 +56,52 @@ const CreateAdmin = () => {
     }
 
     try {
-      // Mock API call - replace with actual API endpoint
-      // await axios.post('/api/admin/create', { username, password });
-      
-      setSuccessMessage('Admin account created successfully');
-      setUsername('');
-      setPassword('');
-      setConfirmPassword('');
-      
-      // Redirect to admin dashboard after 2 seconds
-      setTimeout(() => {
-        navigate('/admin');
-      }, 2000);
+      // Make an API request to create an admin account
+      const response = await axios.post('/create-admin', {
+        username,
+        password,
+        role_id: 3 // Setting role_id to 3 to designate as admin
+      });
+
+      if (response.data?.token) {
+        setSuccessMessage('Admin account created successfully');
+        setUsername('');
+        setPassword('');
+        setConfirmPassword('');
+
+        // Redirect to admin dashboard after 2 seconds
+        setTimeout(() => {
+          navigate('/admin');
+        }, 2000);
+      }
     } catch (err) {
-      setError('Failed to create admin account. Please try again.');
+      setError(err.response?.data?.error || 'Failed to create admin account. Please try again.');
     }
   };
 
+  // Handle logout functionality
   const handleLogout = () => {
-    navigate('/#', { 
-      state: { 
+    navigate('/#', {
+      state: {
         showLogoutMessage: true,
-        message: "You've been logged out successfully" 
-      } 
+        message: "You've been logged out successfully",
+      },
     });
   };
 
   return (
     <div className="bg-[#121212] text-[#EBE7CD] min-h-screen flex font-sans">
       {/* Sidebar */}
-      <div className={`w-16 flex flex-col items-center py-4 bg-black border-r border-gray-800 transition-all duration-300 ease-in-out ${isMenuExpanded ? 'w-64' : 'w-16'}`}>
+      <div
+        className={`w-16 flex flex-col items-center py-4 bg-black border-r border-gray-800 transition-all duration-300 ease-in-out ${
+          isMenuExpanded ? 'w-64' : 'w-16'
+        }`}
+      >
         <div className="flex flex-col items-center space-y-4 mb-8">
-          <button onClick={() => setIsMenuExpanded(!isMenuExpanded)} className="text-[#1ED760] hover:text-white">
+          <button
+            onClick={() => setIsMenuExpanded(!isMenuExpanded)}
+            className="text-[#1ED760] hover:text-white"
+          >
             <Menu className="w-6 h-6" />
           </button>
         </div>
@@ -106,13 +122,25 @@ const CreateAdmin = () => {
             </button>
             <nav>
               <ul className="space-y-4">
-                <li><Link to="/homepage" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Home className="w-5 h-5 mr-3" /> Home</Link></li>
-                <li><Link to="/search" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Search className="w-5 h-5 mr-3" /> Search</Link></li>
-                <li><Link to="/admin" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><User className="w-5 h-5 mr-3" /> Admin Dashboard</Link></li>
+                <li>
+                  <Link to="/homepage" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center">
+                    <Home className="w-5 h-5 mr-3" /> Home
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/search" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center">
+                    <Search className="w-5 h-5 mr-3" /> Search
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/admin" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center">
+                    <User className="w-5 h-5 mr-3" /> Admin Dashboard
+                  </Link>
+                </li>
               </ul>
             </nav>
             <div className="mt-auto">
-              <button 
+              <button
                 onClick={handleLogout}
                 className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center mt-4 w-full"
               >
@@ -138,11 +166,11 @@ const CreateAdmin = () => {
         {/* Create Admin Form */}
         <div className="max-w-md mx-auto w-full">
           <h2 className="text-3xl font-bold mb-8">Create New Admin</h2>
-          
+
           {successMessage && (
-            <Alert className="mb-6 bg-green-800 text-[#EBE7CD] border-none">
-              <AlertDescription>{successMessage}</AlertDescription>
-            </Alert>
+            <div className="mb-6 bg-green-800 text-[#EBE7CD] p-4 rounded-md">
+              {successMessage}
+            </div>
           )}
 
           <form onSubmit={handleCreateAdmin} className="space-y-6">
@@ -156,7 +184,7 @@ const CreateAdmin = () => {
                 required
               />
             </div>
-            
+
             <div>
               <input
                 type="password"
@@ -167,7 +195,7 @@ const CreateAdmin = () => {
                 required
               />
             </div>
-            
+
             <div>
               <input
                 type="password"
@@ -180,9 +208,9 @@ const CreateAdmin = () => {
             </div>
 
             {error && (
-              <Alert className="bg-red-900 text-[#EBE7CD] border-none">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
+              <div className="bg-red-900 text-[#EBE7CD] p-4 rounded-md">
+                {error}
+              </div>
             )}
 
             <button
@@ -194,10 +222,7 @@ const CreateAdmin = () => {
           </form>
 
           <div className="mt-6">
-            <Link 
-              to="/admin" 
-              className="text-[#1ED760] hover:underline text-center block"
-            >
+            <Link to="/admin" className="text-[#1ED760] hover:underline text-center block">
               Back to Admin Dashboard
             </Link>
           </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Search, Home, Settings, Menu, PlusCircle, User, Disc, X, Music, LogOut } from 'lucide-react';
 import axios from '../../api/axios';
+import Sidebar from '../../components/sidebar/Sidebar'; // Update this import path as per your project structure
 
 interface Artist {
   artist_id: string;
@@ -142,52 +143,7 @@ const Homepage: React.FC = () => {
   return (
     <div className="bg-[#121212] text-[#EBE7CD] min-h-screen flex font-sans">
       {/* Sidebar */}
-      <div className={`w-16 flex flex-col items-center py-4 bg-black border-r border-gray-800 transition-all duration-300 ease-in-out ${isMenuExpanded ? 'w-64' : 'w-16'}`}>
-        <div className="flex flex-col items-center space-y-4 mb-8">
-          <button onClick={() => setIsMenuExpanded(!isMenuExpanded)} className="text-[#1ED760] hover:text-white" aria-label="Menu">
-            <Menu className="w-6 h-6" />
-          </button>
-        </div>
-        <div className="flex-grow"></div>
-        <div className="mt-auto flex flex-col items-center space-y-4 mb-4">
-          <button onClick={handleCreatePlaylist} className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-[#EBE7CD] hover:text-white" aria-label="Add">
-            <PlusCircle className="w-6 h-6" />
-          </button>
-          <Link to={getProfilePath()} aria-label="User Profile" className="text-[#1ED760] hover:text-white">
-            <User className="w-6 h-6" />
-          </Link>
-        </div>
-      </div>
-
-      {/* Expandable Menu */}
-      {isMenuExpanded && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50">
-          <div className="bg-[#121212] w-64 h-full p-4">
-            <button onClick={() => setIsMenuExpanded(false)} className="mb-8 text-[#1ED760]">
-              <X className="w-6 h-6" />
-            </button>
-            <nav>
-              <ul className="space-y-4">
-                <li><Link to="/homepage" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Home className="w-5 h-5 mr-3" /> Home</Link></li>
-                <li><Link to="/search" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Search className="w-5 h-5 mr-3" /> Search</Link></li>
-                <li><Link to="/userlibrary" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center"><Music className="w-5 h-5 mr-3" /> Your Library</Link></li>
-                <li><button onClick={handleCreatePlaylist} className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center w-full"><PlusCircle className="w-5 h-5 mr-3" /> Create Playlist</button></li>
-              </ul>
-            </nav>
-            <div className="mt-auto">
-              <Link to={getProfilePath()} className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center mt-4">
-                <User className="w-5 h-5 mr-3" /> Profile ({accountType})
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center mt-4 w-full"
-              >
-                <LogOut className="w-5 h-5 mr-3" /> Log out
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Sidebar handleCreatePlaylist={handleCreatePlaylist} handleLogout={() => navigate('/#')} /> 
 
       {/* Main content */}
       <div className="flex-1 flex flex-col">
@@ -217,7 +173,6 @@ const Homepage: React.FC = () => {
 
         {/* Main Content */}
         <main className="flex-1 p-8 overflow-y-auto">
-
           <section>
             <h2 className="text-2xl font-bold mb-4">Explore The New Albums</h2>
             <div className="grid grid-cols-3 gap-4">

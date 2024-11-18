@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Home, Settings, Menu, PlusCircle, User, Play, X, Music, LogOut } from 'lucide-react';
+import { Search, Home, Settings, PlusCircle, User, Play, Music, LogOut } from 'lucide-react';
 import axios from '../../api/axios';
+import Sidebar from '../../components/sidebar/Sidebar'; // Adjust the path if necessary
 
 interface Playlist {
   playlist_id: number;
@@ -13,7 +14,6 @@ interface Playlist {
 }
 
 const LibraryPage: React.FC = () => {
-  const [isMenuExpanded, setIsMenuExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
@@ -105,89 +105,7 @@ const LibraryPage: React.FC = () => {
   return (
     <div className="bg-[#121212] text-[#EBE7CD] min-h-screen flex font-sans">
       {/* Sidebar */}
-      <div className={`w-16 flex flex-col items-center py-4 bg-black border-r border-gray-800 transition-all duration-300 ease-in-out ${isMenuExpanded ? 'w-64' : 'w-16'}`}>
-        <div className="flex flex-col items-center space-y-4 mb-8">
-          <button 
-            onClick={() => setIsMenuExpanded(!isMenuExpanded)} 
-            className="text-[#1ED760] hover:text-white transition-colors" 
-            aria-label="Menu"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-        </div>
-        <div className="flex-grow"></div>
-        <div className="mt-auto flex flex-col items-center space-y-4 mb-4">
-          <Link 
-            to="/newplaylist" 
-            className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-[#EBE7CD] hover:text-white transition-colors" 
-            aria-label="Add"
-          >
-            <PlusCircle className="w-6 h-6" />
-          </Link>
-          <Link 
-            to="/useredit" 
-            aria-label="User Profile" 
-            className="text-[#1ED760] hover:text-white transition-colors"
-          >
-            <User className="w-6 h-6" />
-          </Link>
-        </div>
-      </div>
-
-      {/* Expanded menu overlay */}
-      {isMenuExpanded && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-50"
-          onClick={() => setIsMenuExpanded(false)}
-        >
-          <div 
-            className="bg-[#121212] w-64 h-full p-4"
-            onClick={e => e.stopPropagation()}
-          >
-            <button 
-              onClick={() => setIsMenuExpanded(false)} 
-              className="mb-8 text-[#1ED760] hover:text-white transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            <nav>
-              <ul className="space-y-4">
-                <li>
-                  <Link to="/homepage" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center transition-colors">
-                    <Home className="w-5 h-5 mr-3" /> Home
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/search" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center transition-colors">
-                    <Search className="w-5 h-5 mr-3" /> Search
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/userlibrary" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center transition-colors">
-                    <Music className="w-5 h-5 mr-3" /> Your Library
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/newplaylist" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center transition-colors">
-                    <PlusCircle className="w-5 h-5 mr-3" /> Create Playlist
-                  </Link>
-                </li>
-              </ul>
-            </nav>
-            <div className="mt-auto">
-              <Link to="/useredit" className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center mt-4 transition-colors">
-                <User className="w-5 h-5 mr-3" /> Profile
-              </Link>
-              <button 
-                onClick={handleLogout} 
-                className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center mt-4 transition-colors w-full"
-              >
-                <LogOut className="w-5 h-5 mr-3" /> Log out
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Sidebar handleCreatePlaylist={handleCreatePlaylist} handleLogout={handleLogout} />
 
       {/* Main content */}
       <div className="flex-1 flex flex-col p-8 overflow-y-auto">

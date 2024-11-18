@@ -18,7 +18,10 @@ import Player from './components/songplayer/Player';
 import Tracking from './components/admin/Tracking';
 import Newtrack from './components/admin/Newtrack';
 import Makeadmin from './components/admin/Makeadmin';
-
+import SongRating from './components/report/Songrating';
+import UserRating from './components/report/Userrating';
+import ArtistRating from './components/report/Artistrating';
+import Notification from './components/notification/Notification';
 
 export const PublicRoutes = [
   {
@@ -104,15 +107,22 @@ export const PublicRoutes = [
     element: <Homepage />
   },
 
-  
+  //adding report path
   {
-    path: '/admin',
-    element: <Admin />
+    path: '/notifications',
+    element: <Notification />
   },
-
   {
-    path: '/makeadmin',
-    element: <Makeadmin />
+    path: '/song-rating',
+    element: <SongRating />
+  },
+  {
+    path: '/artist-rating',
+    element: <ArtistRating />
+  },
+  {
+    path: '/user-rating',
+    element: <UserRating />
   },
 
   {
@@ -146,6 +156,14 @@ export const ArtistRoutes = [
 export const AdminRoutes = [
 
 
+  {
+    path: '/admin',
+    element: <Admin />
+  },
+  {
+    path: '/makeadmin',
+    element: <Makeadmin />
+  },
 
 
 ]
