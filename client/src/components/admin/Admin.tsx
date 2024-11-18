@@ -1,56 +1,60 @@
 import React, { useState, useEffect } from 'react';
-
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, Home, Settings, Menu, PlusCircle, User, Edit2, Loader, X, Music, LogOut, Users, Mic, Music2 } from 'lucide-react';
 import Photo from '../photo/Photo';
 
+interface AdminProfile {
+  user_id: string;
+  name: string;
+  playlists: number;
+}
 
-const Admin = () => {
-  const [adminProfile, setAdminProfile] = useState({ name: '', playlists: 0 });
-  const [activityStats, setActivityStats] = useState({
-    totalUsers: 0,
+interface ActivityStats {
+  totalListeners: number;
+  totalArtists: number;
+  totalSongs: number;
+}
+
+const Admin: React.FC = () => {
+  const [adminProfile, setAdminProfile] = useState<AdminProfile>({ user_id: '', name: '', playlists: 0 });
+  const [activityStats, setActivityStats] = useState<ActivityStats>({
+    totalListeners: 0,
     totalArtists: 0,
-    totalSongs: 0,
+    totalSongs: 0
   });
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  const [isMenuExpanded, setIsMenuExpanded] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
-  const [showReportDropdown, setShowReportDropdown] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isMenuExpanded, setIsMenuExpanded] = useState<boolean>(false);
+  const [searchValue, setSearchValue] = useState<string>('');
+  const [showReportDropdown, setShowReportDropdown] = useState<boolean>(false);
 
   const navigate = useNavigate();
-
-  // Fetch admin profile
-  const fetchAdminProfile = async () => {
-    const response = await fetch('http://localhost:8080/api/admin-profile');
-    if (!response.ok) {
-      throw new Error('Failed to fetch admin profile');
-    }
-    return response.json();
-  };
-
-  // Fetch activity stats
-  const fetchActivityStats = async () => {
-    const response = await fetch('http://localhost:8080/api/activity-stats');
-    if (!response.ok) {
-      throw new Error('Failed to fetch activity stats');
-    }
-    return response.json();
-  };
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
       try {
+        // Fetch admin profile
+        const profileResponse = await fetch('http://localhost:8080/api/admin-profile');
+        if (!profileResponse.ok) {
+          throw new Error('Failed to fetch admin profile');
+        }
+        const profileData = await profileResponse.json();
 
-        const [profileData, statsData] = await Promise.all([
-          fetchAdminProfile(),
-          fetchActivityStats(),
-        ]);
-        setAdminProfile(profileData || { name: '', playlists: 0 });
-        setActivityStats(statsData || { totalUsers: 0, totalArtists: 0, totalSongs: 0 });
+        // Fetch activity stats
+        const statsResponse = await fetch('http://localhost:8080/api/activity-stats');
+        if (!statsResponse.ok) {
+          throw new Error('Failed to fetch activity stats');
+        }
+        const statsData = await statsResponse.json();
+
+        setAdminProfile(profileData);
+        setActivityStats(statsData);
+
+        // Debug logs
+        console.log('Profile Data:', profileData);
+        console.log('Stats Data:', statsData);
       } catch (err) {
         setError('Failed to fetch data. Please try again later.');
         console.error('Error fetching data:', err);
@@ -60,13 +64,11 @@ const Admin = () => {
     };
 
     fetchData();
-
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('userToken');
     sessionStorage.clear();
-
     navigate('/#', {
       state: {
         showLogoutMessage: true,
@@ -79,16 +81,12 @@ const Admin = () => {
     navigate('/newplaylist');
   };
 
-  const handleActivityTracking = () => {
-    navigate('/tracking');
-  };
-
-  const handleGenerateReport = (type) => {
+  const handleGenerateReport = (type: string) => {
     console.log(`Generating ${type} report...`);
     setShowReportDropdown(false);
   };
 
-  const handleSearchChange = (e) => {
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchValue(value);
     if (value.length > 0) {
@@ -97,7 +95,6 @@ const Admin = () => {
       navigate('/admin', { replace: true });
     }
   };
-
 
   if (isLoading) {
     return (
@@ -118,16 +115,23 @@ const Admin = () => {
   return (
     <div className="bg-[#121212] text-[#EBE7CD] min-h-screen flex font-sans">
       {/* Sidebar */}
-
       <div className={`w-16 flex flex-col items-center py-4 bg-black border-r border-gray-800 transition-all duration-300 ease-in-out ${isMenuExpanded ? 'w-64' : 'w-16'}`}>
         <div className="flex flex-col items-center space-y-4 mb-8">
-          <button onClick={() => setIsMenuExpanded(!isMenuExpanded)} className="text-[#1ED760] hover:text-white" aria-label="Menu">
+          <button 
+            onClick={() => setIsMenuExpanded(!isMenuExpanded)} 
+            className="text-[#1ED760] hover:text-white"
+            aria-label="Menu"
+          >
             <Menu className="w-6 h-6" />
           </button>
         </div>
         <div className="flex-grow"></div>
         <div className="mt-auto flex flex-col items-center space-y-4 mb-4">
-          <button onClick={handleCreatePlaylist} className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-[#EBE7CD] hover:text-white" aria-label="Add">
+          <button 
+            onClick={handleCreatePlaylist}
+            className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-[#EBE7CD] hover:text-white"
+            aria-label="Add"
+          >
             <PlusCircle className="w-6 h-6" />
           </button>
           <Link to="/useredit" aria-label="User Profile" className="text-[#1ED760] hover:text-white">
@@ -192,7 +196,6 @@ const Admin = () => {
           </div>
         </div>
 
-
         {/* Profile section */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
@@ -251,7 +254,6 @@ const Admin = () => {
           </div>
         </div>
 
-
         {/* Activity Stats */}
         <div>
           <h3 className="text-xl font-bold mb-4">Platform Activity</h3>
@@ -261,26 +263,31 @@ const Admin = () => {
                 <Users className="w-6 h-6 mr-2 text-[#1ED760]" />
                 <span className="text-lg font-semibold">Total Listeners</span>
               </div>
-              <p className="text-3xl font-bold text-[#1ED760]">{activityStats.totalUsers?.toLocaleString() || 0}</p>
+              <p className="text-3xl font-bold text-[#1ED760]">
+                {activityStats.totalListeners.toLocaleString()}
+              </p>
             </div>
             <div className="bg-[#2A2A2A] p-6 rounded-lg">
               <div className="flex items-center mb-2">
                 <Mic className="w-6 h-6 mr-2 text-[#1ED760]" />
                 <span className="text-lg font-semibold">Total Artists</span>
               </div>
-              <p className="text-3xl font-bold text-[#1ED760]">{activityStats.totalArtists?.toLocaleString() || 0}</p>
+              <p className="text-3xl font-bold text-[#1ED760]">
+                {activityStats.totalArtists.toLocaleString()}
+              </p>
             </div>
             <div className="bg-[#2A2A2A] p-6 rounded-lg">
               <div className="flex items-center mb-2">
                 <Music2 className="w-6 h-6 mr-2 text-[#1ED760]" />
                 <span className="text-lg font-semibold">Songs Uploaded</span>
               </div>
-              <p className="text-3xl font-bold text-[#1ED760]">{activityStats.totalSongs?.toLocaleString() || 0}</p>
+              <p className="text-3xl font-bold text-[#1ED760]">
+                {activityStats.totalSongs.toLocaleString()}
+              </p>
             </div>
           </div>
         </div>
       </div>
-
     </div>
   );
 };
