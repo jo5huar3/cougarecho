@@ -1459,6 +1459,54 @@ router.post('/create-admin', async (req, res) => {
 });
 // End /create-admin
 
+router.get('/songs/:song_id/stream', async (req, res) => {
+  try {
+    const songId = req.params.song_id;
+    const request = new sql.Request();
+    request.input('song_id', sql.Int, songId);
+
+    const result = await request.query(`
+      SELECT SF.song_file, SF.file_name 
+      FROM SongFile SF 
+      WHERE SF.song_id = @song_id
+    `);
+
+    if (!result.recordset[0]) {
+      return res.status(404).json({ error: 'Song file not found' });
+    }
+
+    const songBuffer = result.recordset[0].song_file;
+    
+    // Set appropriate headers for audio streaming
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Content-Length', songBuffer.length);
+    res.setHeader('Accept-Ranges', 'bytes');
+
+    // Handle range requests
+    const range = req.headers.range;
+    if (range) {
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : songBuffer.length - 1;
+      const chunksize = (end - start) + 1;
+
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${songBuffer.length}`);
+      res.setHeader('Content-Length', chunksize);
+      res.status(206);
+      
+      const chunk = Buffer.from(songBuffer.slice(start, end + 1));
+      res.end(chunk);
+    } else {
+      // Send entire file if no range is requested
+      res.end(songBuffer);
+    }
+
+  } catch (error) {
+    console.error('Error streaming song:', error);
+    res.status(500).json({ error: 'Error streaming song' });
+  }
+});
+
 
 export default router;
 

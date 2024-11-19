@@ -44,6 +44,11 @@ const SearchPage: React.FC = () => {
     fetchUserId();
   }, []);
 
+  const handleSongClick = (song: SearchResultItem) => {
+    setCurrentSong(song);
+    window.location.href = `/api/songs/${song.song_id}/stream`;
+  };
+
   const handleSearch = async () => {
     if (searchKeyword.trim() === '') {
       setResults({ songs: [], artists: [] });
@@ -127,8 +132,8 @@ const SearchPage: React.FC = () => {
                   {results.songs.map((song) => (
                     <div
                       key={song.song_id}
-                      className="bg-[#2A2A2A] p-3 rounded-lg flex items-center hover:bg-[#3A3A3A] transition-colors"
-                      onClick={() => setCurrentSong(song)}
+                      className="bg-[#2A2A2A] p-3 rounded-lg flex items-center hover:bg-[#3A3A3A] transition-colors cursor-pointer"
+                      onClick={() => handleSongClick(song)}
                     >
                       <Play className="w-4 h-4 mr-3 text-gray-400" />
                       <div className="flex-grow">
