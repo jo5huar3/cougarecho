@@ -23,15 +23,16 @@ const Sidebar: React.FC<SidebarProps> = ({ handleCreatePlaylist, handleLogout })
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [artistId, setArtistId] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [hasUnread, setHasUnread] = useState(false); // To track unread notifications
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchArtistIdAndNotifications = async () => {
       const userId = localStorage.getItem('user_id');
+      const roleId = localStorage.getItem('role_id');
       const token = localStorage.getItem('token') || '';
 
-      if (!userId) return;
+      if (!userId || roleId !== '2') return; // Only proceed if role_id is 2 (artist)
 
       try {
         const artistIdResponse = await axios.get(`/artist-id/${userId}`, {
@@ -52,52 +53,30 @@ const Sidebar: React.FC<SidebarProps> = ({ handleCreatePlaylist, handleLogout })
         });
 
         setNotifications(notificationsResponse.data);
+        setHasUnread(notificationsResponse.data.some((notif: Notification) => notif.count > 0));
       } catch (err) {
-        console.error("Error fetching artist ID or notifications:", err);
-        setError(err.message);
+        console.error('Error fetching artist ID or notifications:', err);
       }
     };
 
     fetchArtistIdAndNotifications();
   }, []);
 
-  const unreadNotificationsCount = notifications.reduce((count, notif) => count + (notif.count > 0 ? 1 : 0), 0);
-
   const handleMenuToggle = () => {
     setIsMenuExpanded((prev) => {
       const newMenuExpandedState = !prev;
       if (!newMenuExpandedState) {
-        setShowNotifications(false);
+        setShowNotifications(false); // Auto-close notifications panel when sidebar is collapsed
       }
       return newMenuExpandedState;
     });
   };
 
-  const handleNotificationClick = async () => {
-    setShowNotifications(true); // Keep notifications panel open
-
+  const handleNotificationClick = () => {
+    setShowNotifications((prev) => !prev); // Toggle notifications panel
     if (!showNotifications) {
-      try {
-        await axios.put(`/artist/${artistId}/notifications/mark-read`, null, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        markAllNotificationsAsRead();
-      } catch (error) {
-        console.error("Error marking notifications as read:", error);
-      }
+      setHasUnread(false); // Remove the red dot once notifications are opened
     }
-  };
-
-  const markAllNotificationsAsRead = () => {
-    const updatedNotifications = notifications.map((notif) => ({
-      ...notif,
-      count: 0,
-    }));
-    setNotifications(updatedNotifications);
   };
 
   const handleSingleNotificationClick = (id: number) => {
@@ -146,20 +125,23 @@ const Sidebar: React.FC<SidebarProps> = ({ handleCreatePlaylist, handleLogout })
                 aria-label="Notifications"
               >
                 <Bell className="w-5 h-5 mr-3" />
-                Notifications
-                {unreadNotificationsCount > 0 && (
-                  <span className="ml-2 px-2 py-1 bg-red-500 text-white text-xs rounded-full">
-                    {unreadNotificationsCount}
-                  </span>
+                {hasUnread && (
+                  <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>
                 )}
               </button>
               {showNotifications && (
                 <div className="absolute top-full left-0 w-full mt-2 bg-[#2A2A2A] rounded-lg shadow-lg overflow-hidden">
-                  <ArtistNotifications
-                    notifications={notifications}
-                    artistId={artistId}
-                    onNotificationClick={handleSingleNotificationClick}
-                  />
+                  {notifications.length > 0 ? (
+                    <ArtistNotifications
+                      notifications={notifications}
+                      artistId={artistId}
+                      onNotificationClick={handleSingleNotificationClick}
+                    />
+                  ) : (
+                    <div className="p-4 text-[#EBE7CD] text-sm text-center">
+                      You Do Not Have Any Notifications
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -195,19 +177,23 @@ const Sidebar: React.FC<SidebarProps> = ({ handleCreatePlaylist, handleLogout })
                   <li className="relative cursor-pointer">
                     <div onClick={handleNotificationClick} className="text-[#EBE7CD] hover:text-[#1ED760] flex items-center">
                       <Bell className="w-5 h-5 mr-3" /> Notifications
-                      {unreadNotificationsCount > 0 && (
-                        <span className="ml-2 px-2 py-1 bg-red-500 text-white text-xs rounded-full">
-                          {unreadNotificationsCount}
-                        </span>
+                      {hasUnread && (
+                        <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>
                       )}
                     </div>
                     {showNotifications && (
                       <div className="absolute top-full left-0 mt-2 w-full bg-[#2A2A2A] rounded-lg shadow-lg overflow-hidden">
-                        <ArtistNotifications
-                          notifications={notifications}
-                          artistId={artistId}
-                          onNotificationClick={handleSingleNotificationClick}
-                        />
+                        {notifications.length > 0 ? (
+                          <ArtistNotifications
+                            notifications={notifications}
+                            artistId={artistId}
+                            onNotificationClick={handleSingleNotificationClick}
+                          />
+                        ) : (
+                          <div className="p-4 text-[#EBE7CD] text-sm text-center">
+                            You Do Not Have Any Notifications
+                          </div>
+                        )}
                       </div>
                     )}
                   </li>

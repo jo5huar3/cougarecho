@@ -644,10 +644,10 @@ router.get('/song-rating', async (req, res) => {
 });
 router.get('/artist-rating', async (req, res) => {
   try {
-    const pool = await sql.connect('your-database-connection-string');
-    console.log("Database connection established");
+      const pool = await sql.connect('your-database-connection-string');
+      console.log("Database connection established");
 
-    const results = await pool.request().query(`
+      const results = await pool.request().query(`
           WITH ArtistSongCounts AS (
               SELECT 
                   s.artist_id,
@@ -698,11 +698,11 @@ router.get('/artist-rating', async (req, res) => {
               total_likes DESC;
       `);
 
-    console.log("Artist summary report data:", results.recordset);
-    res.json(results.recordset); // Send data as JSON response
+      console.log("Artist summary report data:", results.recordset);
+      res.json(results.recordset); // Send data as JSON response
   } catch (error) {
-    console.error('Error fetching artist summary report:', error);
-    res.status(500).json({ error: 'Internal server error' });
+      console.error('Error fetching artist summary report:', error);
+      res.status(500).json({ error: 'Internal server error' });
   }
 });
 //notifications
@@ -721,11 +721,12 @@ router.get('/artist/:artist_id/notifications', async (req, res) => {
 
     const result = await request.query(query);
 
-    if (result.recordset.length > 0) {
-      res.status(200).json(result.recordset);
-    } else {
-      res.status(404).json({ message: "No notifications found for this artist." });
+    // If no notifications found, return an empty array
+    if (result.recordset.length === 0) {
+      return res.status(200).json([]); // Respond with an empty array
     }
+
+    res.status(200).json(result.recordset);
   } catch (error) {
     console.error("Error fetching notifications:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -752,26 +753,6 @@ router.get('/artist-id/:user_id', async (req, res) => {
     }
   } catch (error) {
     console.error("Error fetching artist ID:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-router.put('/artist/:artist_id/notifications/mark-read', async (req, res) => {
-  try {
-    const artist_id = req.params.artist_id;
-    const request = new sql.Request();
-    request.input('artist_id', sql.Int, artist_id);
-
-    // Update query to mark notifications as read by setting count to 0
-    const query = `
-      UPDATE ArtistNotifications
-      SET count = 0
-      WHERE artist_id = @artist_id
-    `;
-
-    await request.query(query);
-    res.status(200).json({ message: "All notifications marked as read." });
-  } catch (error) {
-    console.error("Error marking notifications as read:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
