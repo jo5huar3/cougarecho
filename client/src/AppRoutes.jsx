@@ -38,6 +38,10 @@ export const PublicRoutes = [
     element: <Register />
   },
   {
+    path: '/playlist/:id',  // This new route allows for dynamic playlist IDs
+    element: <Playlist />
+  },
+  {
     path: '/confirm',
     element: <Confirm />
   },
@@ -58,7 +62,7 @@ export const PublicRoutes = [
   },
 
   {
-    path: '/album/:id',
+    path: '/album/:album_id',
     element: <AlbumPage />
   },
   {

@@ -1,15 +1,11 @@
 runtime: nodejs20
 env: standard
 
-runtime_config:
-  operating_system: "ubuntu22"
-  runtime_version: "20"
-
 env_variables:
-    UPLOAD_PATH: /mnt/disks/storage/uploads
+    UPLOAD_PATH: /tmp/uploads
 
 handlers:
-  - url: /client/dist
-    static_dir: dist
+- url: /client/dist
+  static_dir: dist
 
   

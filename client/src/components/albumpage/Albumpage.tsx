@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Play, Home, Settings, Pause, Music, LogOut, Search } from 'lucide-react';
 import Player from '../songplayer/Player';
 import Sidebar from '../../components/sidebar/Sidebar';  // Import the Sidebar component
+import axios from '../../api/axios';
 
 interface Song {
   song_id: string;
@@ -22,13 +23,13 @@ interface Album {
   album_name: string;
   artist_id: string;
   artist_name: string;
-  path: string;
   create_at: string;
   update_at: string;
+  album_cover: string;
   songs: Song[];
 }
 
-const AlbumPage = () => {
+const AlbumPage = (/*album_id*/) => {
   const navigate = useNavigate();
   const { albumId } = useParams();
   const [imageError, setImageError] = useState(false);
@@ -42,9 +43,9 @@ const AlbumPage = () => {
     create_at: new Date().toISOString(),
     update_at: new Date().toISOString(),
     songs: [
-      { 
-        song_id: "1", 
-        title: "Skinny", 
+      {
+        song_id: "1",
+        title: "Skinny",
         artist: "Billie Eilish",
         duration: "3:42",
         plays: 590383201,
@@ -54,9 +55,9 @@ const AlbumPage = () => {
         created_at: new Date().toISOString(),
         isAvailable: true
       },
-      { 
-        song_id: "2", 
-        title: "Lunch", 
+      {
+        song_id: "2",
+        title: "Lunch",
         artist: "Billie Eilish",
         duration: "3:15",
         plays: 590383201,
@@ -66,9 +67,9 @@ const AlbumPage = () => {
         created_at: new Date().toISOString(),
         isAvailable: true
       },
-      { 
-        song_id: "3", 
-        title: "Wildflower", 
+      {
+        song_id: "3",
+        title: "Wildflower",
         artist: "Billie Eilish",
         duration: "4:01",
         plays: 480293102,
@@ -78,9 +79,9 @@ const AlbumPage = () => {
         created_at: new Date().toISOString(),
         isAvailable: true
       },
-      { 
-        song_id: "4", 
-        title: "The Greatest", 
+      {
+        song_id: "4",
+        title: "The Greatest",
         artist: "Billie Eilish",
         duration: "3:57",
         plays: 520184930,
@@ -105,9 +106,12 @@ const AlbumPage = () => {
   const [userId, setUserId] = useState<string>('mock-user-id');
 
   useEffect(() => {
-    console.log('Album state:', album);
-    document.title = `${album.album_name} - ${album.artist_name}`;
-  }, [album]);
+    const fetchData = async () => {
+      const result = await axios.get(`/album/103`)
+
+    }
+    fetchData();
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,11 +131,11 @@ const AlbumPage = () => {
   const handleLogout = () => {
     localStorage.removeItem('userToken');
     sessionStorage.clear();
-    navigate('/#', { 
-      state: { 
+    navigate('/#', {
+      state: {
         showLogoutMessage: true,
-        message: "You've been logged out successfully" 
-      } 
+        message: "You've been logged out successfully"
+      }
     });
   };
 
@@ -235,7 +239,7 @@ const AlbumPage = () => {
                 <p className="text-sm text-gray-400">{album.songs.length} songs</p>
               </div>
             </div>
-            <button 
+            <button
               className="bg-[#1ED760] rounded-full p-3 mb-6"
               onClick={handlePlayAll}
             >
@@ -251,8 +255,8 @@ const AlbumPage = () => {
               </thead>
               <tbody>
                 {album.songs.map((song) => (
-                  <tr 
-                    key={song.song_id} 
+                  <tr
+                    key={song.song_id}
                     className="border-b border-gray-700 hover:bg-gray-800 cursor-pointer"
                     onClick={() => handleSongClick(song)}
                   >
@@ -275,7 +279,7 @@ const AlbumPage = () => {
 
         {/* Player */}
         {currentSong && userId && (
-          <Player 
+          <Player
             currentSong={currentSong}
             userId={userId}
           />
