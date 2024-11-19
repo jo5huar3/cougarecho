@@ -10,7 +10,7 @@ import corsOptions from './config/corsOptions.js';
 
 dotenv.config(); // Load environment variables
 const port = process.env.PORT || 8080; // The port for the server
-const local_bool = false; //process.env.ISLOCAL || false;
+const local_bool = true; //process.env.ISLOCAL || false;
 const app = express();
 if (!local_bool) {
     app.enable('trust proxy');

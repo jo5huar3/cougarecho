@@ -66,7 +66,7 @@ export const PublicRoutes = [
     element: <AlbumPage />
   },
   {
-    path: '/player',
+    path: '/player/:songId',
     element: <Player />
   },
   {
