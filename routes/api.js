@@ -13,8 +13,33 @@ const router = express.Router();
 const SECRET_KEY = process.env.ACCESS_TOKEN_SECRET;
 const userRoles = { "Listener": 1, "Artist": 2, "Admin": 3 }
 
-
-
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+// Create 'uploads' directory if it doesn't exist
+const uploadDir = process.env.UPLOAD_PATH || '/tmp/uploads';
+try {
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+} catch (err) {
+  console.error('Error creating upload directory:', err);
+  // Handle the error appropriately
+}
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir); // Directory where files will be stored
+  },
+  filename: function (req, file, cb) {
+    // Save the file with its original name
+    cb(null, file.originalname);
+  },
+});
+const upload = multer({ storage: storage });
+const album_upload = upload.fields([
+  { name: 'song', maxCount: 20 },
+  { name: 'img', maxCount: 1 }
+])
 router.get("/data", async (req, res) => {
   try {
     const myQuery = "SELECT * FROM UserRole";
@@ -32,7 +57,6 @@ router.get("/data", async (req, res) => {
 router.get("/test", (req, res) => {
   res.json([{ "test": "hello world!" }])
 });
-
 // Begin Josh Lewis
 router.get('/listener/:id', async (req, res) => {
   try {
@@ -176,36 +200,6 @@ router.get('/album/playcount/3', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Create 'uploads' directory if it doesn't exist
-const uploadDir = path.join(process.cwd(), 'uploads');
-try {
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-} catch (err) {
-  console.error('Error creating upload directory:', err);
-  // Handle the error appropriately
-}
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir); // Directory where files will be stored
-  },
-  filename: function (req, file, cb) {
-    // Save the file with its original name
-    cb(null, file.originalname);
-  },
-});
-
-const upload = multer({ storage: storage });
-const album_upload = upload.fields([
-  { name: 'song', maxCount: 20 },
-  { name: 'img', maxCount: 1 }
-])
 // Begin /album-upload
 router.post("/song-insert", upload.single('song'), async function (req, res, next) {
   console.log(req?.body)
@@ -214,15 +208,10 @@ router.post("/song-insert", upload.single('song'), async function (req, res, nex
   const album_id = req?.body?.album_id
   const song_name = req.body.song_name || 'Untitled'; // Add this line to get song name
   const isAvailable = true;
-
-  
   console.log("user_id: ", user_id, ", file", file, ", song_name: ", song_name)
-  
-
   if (!file || !user_id || !album_id) {
     return res.status(400).json({ error: "File upload failed. Necessary fields not received." });
   }
-
   try {
     const request1 = new sql.Request();
     request1.input('song_name', sql.VarChar, song_name); // Use the provided song name
@@ -264,8 +253,6 @@ router.post("/song-insert", upload.single('song'), async function (req, res, nex
   }
   //const transaction = new sql.Transaction()
   //transaction.begin(err => {
-
-
   try {
     const request1 = new sql.Request();
     request1.input('song_name', sql.VarChar, song_name);
@@ -307,8 +294,6 @@ router.post("/song-insert", upload.single('song'), async function (req, res, nex
     //console.log('Transaction rolled back.')
   }
 })
-
-
 // Album upload endpoint
 router.post("/album-insert", upload.single('img'), async function (req, res) {
   try {
@@ -330,7 +315,7 @@ router.post("/album-insert", upload.single('img'), async function (req, res) {
     request.input('album_cover', sql.VarBinary(sql.MAX), fileBuffer);
 
     console.log("Inserting album...");
-    
+
     const result = await request.query(`
       DECLARE @InsertedAlbum TABLE (album_id INT);
       INSERT INTO [Album] (create_at, update_at, artist_id, album_name, album_cover)
@@ -393,7 +378,6 @@ router.post("/artist/profile/update", async (req, res) => {
     res.status(500).send('Internal server error');
   }
 });
-
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
   //console.log(user_name + " " + password)
@@ -436,7 +420,6 @@ router.post('/login', async (req, res) => {
   });
 });
 // End /login
-
 // Begin /register get method: This method checks if username is available.
 router.get('/register/:username', async (req, res) => {
   try {
@@ -460,7 +443,6 @@ router.get('/register/:username', async (req, res) => {
   }
 });
 // End /register get method:
-
 // Begin /register
 router.post("/register", async (req, res) => {
   try {
@@ -534,15 +516,13 @@ router.post("/register", async (req, res) => {
     res.json({ error: error.message });
   }
 });
-
-
 // End /register
-
 // End Josh Lewis
-
-
+/**********************************************************************************************************************/
+/**********************************************************************************************************************/
+/**********************************************************************************************************************/
+/**********************************************************************************************************************/
 //Thinh Bui
-
 //get all user
 router.get('/users', async (req, res) => {
   try {
@@ -554,7 +534,6 @@ router.get('/users', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 //search for songs and artist name
 router.get('/songs/search', async (req, res) => {
   try {
@@ -602,7 +581,6 @@ router.get('/songs/search', async (req, res) => {
     });
   }
 });
-
 router.get('/user-rating', async (req, res) => {
   try {
     const pool = await sql.connect('your-database-connection-string');
@@ -616,11 +594,6 @@ router.get('/user-rating', async (req, res) => {
           SELECT user_id, COUNT(playlist_id) AS playlists_created
           FROM dbo.Playlist
           GROUP BY user_id
-      ),
-      UserLikes AS (
-          SELECT user_id, COUNT(song_id) AS likes_given
-          FROM dbo.Likes
-          GROUP BY user_id
       )
       
       SELECT 
@@ -628,11 +601,10 @@ router.get('/user-rating', async (req, res) => {
           u.username,
           u.display_name,
           ISNULL(up.songs_played, 0) AS songs_played,
-          ISNULL(ul.likes_given, 0) AS likes_given,
-          ISNULL(upc.playlists_created, 0) AS playlists_created
+          ISNULL(upc.playlists_created, 0) AS playlists_created,
+          u.created_at AS account_created_at
       FROM dbo.[User] u
       LEFT JOIN UserPlays up ON u.user_id = up.user_id
-      LEFT JOIN UserLikes ul ON u.user_id = ul.user_id
       LEFT JOIN UserPlaylists upc ON u.user_id = upc.user_id
       ORDER BY u.user_id;
     `);
@@ -642,7 +614,6 @@ router.get('/user-rating', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 router.get('/song-rating', async (req, res) => {
   try {
     const pool = await sql.connect('your-database-connection-string');
@@ -671,13 +642,12 @@ router.get('/song-rating', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 router.get('/artist-rating', async (req, res) => {
   try {
-      const pool = await sql.connect('your-database-connection-string');
-      console.log("Database connection established");
+    const pool = await sql.connect('your-database-connection-string');
+    console.log("Database connection established");
 
-      const results = await pool.request().query(`
+    const results = await pool.request().query(`
           WITH ArtistSongCounts AS (
               SELECT 
                   s.artist_id,
@@ -728,14 +698,13 @@ router.get('/artist-rating', async (req, res) => {
               total_likes DESC;
       `);
 
-      console.log("Artist summary report data:", results.recordset);
-      res.json(results.recordset); // Send data as JSON response
+    console.log("Artist summary report data:", results.recordset);
+    res.json(results.recordset); // Send data as JSON response
   } catch (error) {
-      console.error('Error fetching artist summary report:', error);
-      res.status(500).json({ error: 'Internal server error' });
+    console.error('Error fetching artist summary report:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 //notifications
 router.get('/artist/:artist_id/notifications', async (req, res) => {
   try {
@@ -807,9 +776,7 @@ router.put('/artist/:artist_id/notifications/mark-read', async (req, res) => {
   }
 });
 //End Thinh Bui
-
 //Will Nguyen Begin
-
 //Start: Create New Playlist
 router.post("/playlist/new", async (req, res) => {
   try {
@@ -842,7 +809,6 @@ router.post("/playlist/new", async (req, res) => {
   }
 });
 //End: Create New Playlist
-
 //Start: Add song to playlist
 router.post("/playlist/:playlist_id/song", async (req, res) => {
   try {
@@ -879,7 +845,6 @@ router.post("/playlist/:playlist_id/song", async (req, res) => {
   }
 });
 //End: Add Song to Playlist
-
 // Start: Delete song from playlist
 router.delete('/playlist/:playlist_id/song/:song_id', async (req, res) => {
   try {
@@ -909,7 +874,6 @@ router.delete('/playlist/:playlist_id/song/:song_id', async (req, res) => {
   }
 });
 //End: Delete song from playlist
-
 // Delete playlist
 router.delete('/playlist/:playlist_id', async (req, res) => {
   try {
@@ -945,9 +909,7 @@ router.delete('/playlist/:playlist_id', async (req, res) => {
   }
 });
 //End: delete playlist
-
 //Start: get playlist
-
 router.get('/playlist/:playlist_id', async (req, res) => {
   try {
     const { playlist_id } = req.params;
@@ -981,7 +943,6 @@ router.get('/playlist/:playlist_id', async (req, res) => {
   }
 });
 //End: get playlist
-
 //Start: update playlist name
 router.put('/playlist/:playlist_id', async (req, res) => {
   try {
@@ -1056,9 +1017,7 @@ router.get('/playlists/user/:userId', async (req, res) => {
   }
 });
 //End: get user playlists
-
 //Will Nguyen End
-
 //Homepage: Yeni
 // In your api.js file, update the routes
 // Get top 3 artists
@@ -1088,7 +1047,6 @@ router.get("/artists", async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 // Get top 3 albums
 router.get("/albums", async (req, res) => {
   try {
@@ -1119,18 +1077,14 @@ router.get("/albums", async (req, res) => {
   }
 });
 //End Homepage: Yeni
-
-
-
 //edit start Yeni
-
 // Get user profile with display name and username
 router.get('/user/profile/:user_id', async (req, res) => {
   try {
     const user_id = req.params.user_id;
     const request = new sql.Request();
     request.input('user_id', sql.Int, user_id);
-    
+
     const myQuery = `
       SELECT U.user_id, U.username, U.display_name, U.role_id,
         (SELECT COUNT(*) FROM [Playlist] WHERE user_id = U.user_id) as playlist_count
@@ -1152,7 +1106,7 @@ router.get('/user/profile/:user_id', async (req, res) => {
 router.put('/user/displayname', async (req, res) => {
   try {
     const { user_id, display_name } = req.body;
-    
+
     if (!display_name?.trim()) {
       return res.status(400).json({ error: 'Display name cannot be empty' });
     }
@@ -1302,23 +1256,25 @@ router.delete('/user/delete/:user_id', async (req, res) => {
 
 //admin start Yeni
 
-router.get('/admin-profile', async (req, res) => {
+router.get('/admin-profile/:user_id', async (req, res) => {
   try {
-    // Example query to fetch admin profile data
+    const { user_id } = req.params;
+    
     const query = `
       SELECT 
         U.user_id, 
         U.display_name AS name, 
         (SELECT COUNT(*) FROM Playlist WHERE user_id = U.user_id) AS playlists
       FROM [User] U
-      WHERE U.role_id = 3 -- Assuming role_id = 3 means Admin
+      WHERE U.user_id = @user_id AND U.role_id = 3
     `;
 
     const request = new sql.Request();
+    request.input('user_id', sql.Int, user_id);
     const result = await request.query(query);
 
     if (result.recordset.length > 0) {
-      res.json(result.recordset[0]); // Return admin profile data
+      res.json(result.recordset[0]);
     } else {
       res.status(404).json({ error: 'Admin profile not found' });
     }
@@ -1350,6 +1306,62 @@ router.get('/activity-stats', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// admin end
+
+
+
+// Begin /create-admin Thinh
+router.post('/create-admin', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    // Validate inputs
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required.' });
+    }
+
+    // Hash the password using bcrypt
+    const password_hash = await bcrypt.hash(password, 4);
+    
+    // Define SQL query to insert new admin user into the database
+    const myQuery = `
+          INSERT INTO [User] (username, password_hash, created_at, role_id)
+          OUTPUT inserted.user_id, inserted.username, inserted.role_id
+          VALUES (@username, @password_hash, GETDATE(), @role_id)`;
+    
+    // Create SQL request
+    const request = new sql.Request();
+    request.input('username', sql.NVarChar, username);
+    request.input('password_hash', sql.NVarChar, password_hash);
+    request.input('role_id', sql.Int, 3); // Role ID 3 for admin
+
+    // Execute the query
+    const result = await request.query(myQuery);
+    
+    if (result?.rowsAffected[0] === 1) {
+      // Generate a JWT token for the newly created admin user
+      const token = jwt.sign(
+        {
+          user_id: result.recordset[0].user_id,
+          username: result.recordset[0].username,
+          role_id: result.recordset[0].role_id,
+        },
+        SECRET_KEY,
+        { expiresIn: '1h' }
+      );
+
+      // Respond with the JWT token
+      res.json({ token });
+    } else {
+      res.status(500).json({ error: "Failed to create admin account. Database did not return expected output." });
+    }
+  } catch (error) {
+    // Handle errors and send response with error message
+    res.status(500).json({ error: error.message });
+  }
+});
+// End /create-admin
 
 
 export default router;

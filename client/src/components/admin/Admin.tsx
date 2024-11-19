@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, Home, Settings, Menu, PlusCircle, User, Edit2, Loader, X, Music, LogOut, Users, Mic, Music2 } from 'lucide-react';
+import axios from '../../api/axios';
 import Photo from '../photo/Photo';
 
 interface AdminProfile {
@@ -20,9 +20,10 @@ const Admin: React.FC = () => {
   const [adminProfile, setAdminProfile] = useState<AdminProfile>({ user_id: '', name: '', playlists: 0 });
   const [activityStats, setActivityStats] = useState<ActivityStats>({
     totalListeners: 0,
-
     totalArtists: 0,
     totalSongs: 0
+
+
   });
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,39 +38,64 @@ const Admin: React.FC = () => {
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
+  
+      // Get the logged in user's data from localStorage
+      const token = localStorage.getItem('token');
+      const role_id = localStorage.getItem('role_id');
+      const user_id = localStorage.getItem('user_id');
+  
+      if (!token || role_id !== '3') {
+        navigate('/login');
+        return;
+      }
+  
       try {
-        // Fetch admin profile
-        const profileResponse = await fetch('http://localhost:8080/api/admin-profile');
-        if (!profileResponse.ok) {
-          throw new Error('Failed to fetch admin profile');
+        // Add user_id to the request to get specific admin's data
+        const [profileRes, statsRes] = await Promise.all([
+          axios.get(`/admin-profile/${user_id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }),
+          axios.get('/activity-stats', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+        ]);
+  
+        console.log('User ID:', user_id);
+        console.log('Profile Response:', profileRes.data);
+        console.log('Stats Response:', statsRes.data);
+  
+        if (profileRes.data) {
+          setAdminProfile({
+            user_id: user_id, // Make sure to use the logged in user's ID
+            name: profileRes.data.name,
+            playlists: profileRes.data.playlists
+          });
         }
-        const profileData = await profileResponse.json();
-
-        // Fetch activity stats
-        const statsResponse = await fetch('http://localhost:8080/api/activity-stats');
-        if (!statsResponse.ok) {
-          throw new Error('Failed to fetch activity stats');
+  
+        if (statsRes.data) {
+          setActivityStats(statsRes.data);
         }
-        const statsData = await statsResponse.json();
-
-        setAdminProfile(profileData);
-        setActivityStats(statsData);
-
-        // Debug logs
-        console.log('Profile Data:', profileData);
-        console.log('Stats Data:', statsData);
-
+  
       } catch (err) {
-        setError('Failed to fetch data. Please try again later.');
-        console.error('Error fetching data:', err);
+        console.error('Error:', err);
+        if (err?.response?.status === 401) {
+          navigate('/login');
+        } else {
+          setError('Failed to load admin data');
+        }
       } finally {
         setIsLoading(false);
       }
     };
-
+  
     fetchData();
-
-  }, []);
+  }, [navigate]);
 
   const handleLogout = () => {
     localStorage.removeItem('userToken');
@@ -87,10 +113,23 @@ const Admin: React.FC = () => {
     navigate('/newplaylist');
   };
 
-  const handleGenerateReport = (type: string) => {
-    console.log(`Generating ${type} report...`);
+  const handleGenerateReport = (type) => {
     setShowReportDropdown(false);
+    switch (type) {
+      case 'song':
+        navigate('/song-rating');
+        break;
+      case 'user':
+        navigate('/user-rating');
+        break;
+      case 'artist':
+        navigate('/artist-rating');
+        break;
+      default:
+        console.log(`Unknown report type: ${type}`);
+    }
   };
+
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -125,6 +164,7 @@ const Admin: React.FC = () => {
 
       <div className={`w-16 flex flex-col items-center py-4 bg-black border-r border-gray-800 transition-all duration-300 ease-in-out ${isMenuExpanded ? 'w-64' : 'w-16'}`}>
         <div className="flex flex-col items-center space-y-4 mb-8">
+         
           <button 
             onClick={() => setIsMenuExpanded(!isMenuExpanded)} 
             className="text-[#1ED760] hover:text-white"

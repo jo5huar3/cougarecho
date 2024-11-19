@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Search, Home, Settings, Menu, PlusCircle, User, Edit2, Loader, X, Music, LogOut, Play } from 'lucide-react';
 import { UserContext } from '../../context/UserContext';
 import axios from '../../api/axios';
-import Photo from '../photo/Photo'; // Adjust path as needed
+import Photo from '../photo/Photo';
 
 interface Album {
   album_id: number;
@@ -14,53 +14,16 @@ interface Album {
   album_cover: string; //File | string | null;
 }
 
-interface UserProfile {
+interface Profile {
   name: string;
   playlists: number;
-  avatar: string
+  avatar: string;
 }
-
-// Mock API to simulate database calls
-const mockApi = {
-  fetchUserProfile: () => new Promise<UserProfile>(resolve =>
-    setTimeout(() => resolve({
-      name: 'John Doe',
-      playlists: 12
-    }), 500)
-  ),
-  fetchTopAlbums: () => new Promise<Album[]>(resolve =>
-    setTimeout(() => resolve([
-      {
-        album_id: 1,
-        album_name: 'Hit me hard and soft',
-        artist_name: 'Billie Eilish',
-        album_cover: '/api/placeholder/400/400',
-        playCount: 1205,
-        lastPlayed: '2024-05-01T14:48:00.000Z'
-      },
-      {
-        album_id: 2,
-        album_name: 'Midnights',
-        artist_name: 'Taylor Swift',
-        album_cover: '/api/placeholder/400/400',
-        playCount: 986,
-        lastPlayed: '2024-04-28T09:32:00.000Z'
-      },
-      {
-        album_id: 3,
-        album_name: 'Dawn FM',
-        artist_name: 'The Weeknd',
-        album_cover: '/api/placeholder/400/400',
-        playCount: 754,
-        lastPlayed: '2024-04-25T22:15:00.000Z'
-      }
-    ]), 500)
-  ),
-};
 
 const Listener = () => {
   const { user } = useContext(UserContext)
-  const [userProfile, setUserProfile] = useState<UserProfile>({ name: '', playlists: 0, avatar: "" });
+  const [userProfile, setUserProfile] = useState<Profile>();
+  const [imageUrl, setImageUrl] = useState<string | undefined>();
   const [topAlbums, setTopAlbums] = useState<Album[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,14 +32,18 @@ const Listener = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  /*
   useEffect(() => {
     const fetchData = async () => {
 
       try {
-        const response = await axios.get('/listener/' + user.user_id);
-        const profileData = { name: response?.data?.display_name, playlists: response?.data?.playlists }
-        console.log(profileData)
-
+        const response = await axios.get(`/listener/${user.user_id}`);
+        const profileData = { name: response?.data?.display_name, playlists: response?.data?.playlists, avatar: response?.data?.avatar }
+        console.log("Line 39:\n", profileData)
+        const imageUrl = typeof profileData?.avatar === 'string'
+          ? profileData?.avatar
+          : URL.createObjectURL(profileData?.avatar);
+        setImageUrl(imageUrl)
         setUserProfile({ ...userProfile, ...profileData });
 
         //console.log(topAlbums)
@@ -89,7 +56,7 @@ const Listener = () => {
       }
     };
     fetchData();
-  }, []);
+  }, []);*/
 
   useEffect(() => {
     const fetchData = async () => {
@@ -261,15 +228,16 @@ const Listener = () => {
         {/* Profile section */}
         <div className="bg-[#1A1A1A] rounded-lg p-6 mb-8">
           <div className="flex items-center justify-between">
-          <div className="flex items-center">
-  <Photo />
-  <div>
-    <p className="text-sm text-gray-400">Profile</p>
-    <h2 className="text-4xl font-bold">{userProfile.name}</h2>
-    <p className="text-sm text-gray-400">{userProfile.playlists} Playlists</p>
-  </div>
-</div>
-
+            <div className="flex items-center">
+              <div className="w-32 h-32 bg-gray-700 rounded-full mr-6">
+                <Photo />
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Profile</p>
+                <h2 className="text-4xl font-bold">{userProfile?.name}</h2>
+                <p className="text-sm text-gray-400">{userProfile?.playlists} Playlists</p>
+              </div>
+            </div>
             <Link to="/useredit" className="text-gray-400 hover:text-white">
               <Edit2 className="w-5 h-5" />
             </Link>
