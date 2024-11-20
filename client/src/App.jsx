@@ -4,6 +4,7 @@ import { PublicRoutes, ListenerRoutes, ArtistRoutes, AdminRoutes } from './AppRo
 import { Layout } from './components/Layout';
 import AuthRoute from './api/AuthRoute';
 import './index.css';
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const App = () => {
   return (
