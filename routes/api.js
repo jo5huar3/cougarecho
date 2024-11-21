@@ -669,32 +669,28 @@ router.get('/user-rating', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-router.get('/song-rating', async (req, res) => {
+router.get("/song-rating", async (req, res) => {
   try {
-    const pool = await sql.connect('your-database-connection-string');
-    const results = await pool.request().query(`
+    const result = await new sql.Request().query(`
       SELECT 
-          s.song_name,
-          a.artist_name,
-          COALESCE(COUNT(DISTINCT l.user_id), 0) AS total_likes,
-          COALESCE(COUNT(DISTINCT ph.user_id), 0) AS total_plays
-      FROM 
-          dbo.Song s
-      LEFT JOIN 
-          dbo.Likes l ON s.song_id = l.song_id
-      LEFT JOIN 
-          dbo.SongPlayHistory ph ON s.song_id = ph.song_id
-      LEFT JOIN 
-          dbo.Artist a ON s.artist_id = a.artist_id
-      GROUP BY 
-          s.song_name, a.artist_name
-      ORDER BY 
-          total_likes DESC, total_plays DESC;
+        s.song_name, 
+        a.artist_name, 
+        s.plays AS total_plays, 
+        s.created_at, 
+        ISNULL(l.total_likes, 0) AS total_likes
+      FROM Song s
+      INNER JOIN Artist a ON s.artist_id = a.artist_id
+      LEFT JOIN (
+        SELECT song_id, COUNT(*) AS total_likes
+        FROM Likes
+        GROUP BY song_id
+      ) l ON s.song_id = l.song_id;
     `);
-    res.status(200).json(results.recordset);
-  } catch (error) {
-    console.error('Error fetching song rating report:', error);
-    res.status(500).json({ error: 'Internal server error' });
+
+    res.status(200).json(result.recordset);
+  } catch (err) {
+    console.error("Error fetching song ratings:", err.message);
+    res.status(500).json({ message: "Error fetching song ratings." });
   }
 });
 router.get('/artist-rating', async (req, res) => {
@@ -703,55 +699,54 @@ router.get('/artist-rating', async (req, res) => {
     console.log("Database connection established");
 
     const results = await pool.request().query(`
-          WITH ArtistSongCounts AS (
-              SELECT 
-                  s.artist_id,
-                  COUNT(s.song_id) AS total_songs
-              FROM 
-                  Song s
-              GROUP BY 
-                  s.artist_id
-          ),
-          ArtistAlbumCounts AS (
-              SELECT 
-                  a.artist_id,
-                  COUNT(DISTINCT alb.album_id) AS total_albums
-              FROM 
-                  Album alb
-              JOIN 
-                  Artist a ON alb.artist_id = a.artist_id
-              GROUP BY 
-                  a.artist_id
-          ),
-          ArtistLikeCounts AS (
-              SELECT 
-                  s.artist_id,
-                  COUNT(l.song_id) AS total_likes
-              FROM 
-                  Likes l
-              JOIN 
-                  Song s ON l.song_id = s.song_id
-              GROUP BY 
-                  s.artist_id
-          )
-          
+      WITH ArtistSongCounts AS (
+          SELECT 
+              s.artist_id,
+              COUNT(s.song_id) AS total_songs
+          FROM 
+              Song s
+          GROUP BY 
+              s.artist_id
+      ),
+      ArtistAlbumCounts AS (
           SELECT 
               a.artist_id,
-              a.artist_name,
-              COALESCE(ascnt.total_songs, 0) AS total_songs,
-              COALESCE(aac.total_albums, 0) AS total_albums,
-              COALESCE(alc.total_likes, 0) AS total_likes
+              COUNT(DISTINCT alb.album_id) AS total_albums
           FROM 
-              Artist a
-          LEFT JOIN 
-              ArtistSongCounts ascnt ON a.artist_id = ascnt.artist_id
-          LEFT JOIN 
-              ArtistAlbumCounts aac ON a.artist_id = aac.artist_id
-          LEFT JOIN 
-              ArtistLikeCounts alc ON a.artist_id = alc.artist_id
-          ORDER BY 
-              total_likes DESC;
-      `);
+              Album alb
+              JOIN Artist a ON alb.artist_id = a.artist_id
+          GROUP BY 
+              a.artist_id
+      ),
+      ArtistLikeCounts AS (
+          SELECT 
+              s.artist_id,
+              COUNT(l.song_id) AS total_likes
+          FROM 
+              Likes l
+              JOIN Song s ON l.song_id = s.song_id
+          GROUP BY 
+              s.artist_id
+      )
+      
+      SELECT 
+          a.artist_id,
+          a.artist_name,
+          a.created_at, -- Include artist creation date
+          COALESCE(ascnt.total_songs, 0) AS total_songs,
+          COALESCE(aac.total_albums, 0) AS total_albums,
+          COALESCE(alc.total_likes, 0) AS total_likes
+      FROM 
+          Artist a
+      LEFT JOIN 
+          ArtistSongCounts ascnt ON a.artist_id = ascnt.artist_id
+      LEFT JOIN 
+          ArtistAlbumCounts aac ON a.artist_id = aac.artist_id
+      LEFT JOIN 
+          ArtistLikeCounts alc ON a.artist_id = alc.artist_id
+      ORDER BY 
+          total_likes DESC;
+    `);
 
     console.log("Artist summary report data:", results.recordset);
     res.json(results.recordset); // Send data as JSON response
@@ -809,6 +804,184 @@ router.get('/artist-id/:user_id', async (req, res) => {
   } catch (error) {
     console.error("Error fetching artist ID:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get('/songs/:song_id/stream', async (req, res) => {
+  try {
+    const songId = req.params.song_id;
+    const request = new sql.Request();
+    request.input('song_id', sql.Int, songId);
+
+    const result = await request.query(`
+      SELECT SF.song_file, SF.file_name 
+      FROM SongFile SF 
+      WHERE SF.song_id = @song_id
+    `);
+
+    if (!result.recordset[0]) {
+      return res.status(404).json({ error: 'Song file not found' });
+    }
+
+    const songBuffer = result.recordset[0].song_file;
+    
+    // Set appropriate headers for audio streaming
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Content-Length', songBuffer.length);
+    res.setHeader('Accept-Ranges', 'bytes');
+
+    // Handle range requests
+    const range = req.headers.range;
+    if (range) {
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : songBuffer.length - 1;
+      const chunksize = (end - start) + 1;
+
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${songBuffer.length}`);
+      res.setHeader('Content-Length', chunksize);
+      res.status(206);
+      
+      const chunk = Buffer.from(songBuffer.slice(start, end + 1));
+      res.end(chunk);
+    } else {
+      // Send entire file if no range is requested
+      res.end(songBuffer);
+    }
+
+  } catch (error) {
+    console.error('Error streaming song:', error);
+    res.status(500).json({ error: 'Error streaming song' });
+  }
+});
+
+router.get('/songs/:song_id/album-cover', async (req, res) => {
+  try {
+    const songId = req.params.song_id;
+    const request = new sql.Request();
+    request.input('song_id', sql.Int, songId);
+
+    // Query to fetch the album cover for the song
+    const result = await request.query(`
+      SELECT A.album_cover, A.path AS album_cover_path
+      FROM Album A
+      JOIN Song S ON A.album_id = S.album_id
+      WHERE S.song_id = @song_id
+    `);
+
+    if (!result.recordset[0]) {
+      return res.status(404).json({ error: 'Album cover not found' });
+    }
+
+    const albumCover = result.recordset[0].album_cover;
+
+    if (!albumCover) {
+      return res.status(404).json({ error: 'No album cover available for this album' });
+    }
+
+    // Set headers for returning the album cover as an image
+    res.setHeader('Content-Type', 'image/jpeg'); // Change MIME type if not JPEG
+    res.setHeader('Content-Length', albumCover.length);
+
+    res.end(albumCover); // Send the image data
+  } catch (error) {
+    console.error('Error retrieving album cover:', error);
+    res.status(500).json({ error: 'Error retrieving album cover' });
+  }
+});
+
+router.post('/toggle-like', async (req, res) => {
+  const { userId, songId } = req.body;
+
+  if (!userId || !songId) {
+    return res.status(400).json({ error: 'User ID and Song ID are required.' });
+  }
+
+  try {
+    const checkQuery = `
+      SELECT * 
+      FROM Likes 
+      WHERE user_id = @userId AND song_id = @songId
+    `;
+
+    const deleteQuery = `
+      DELETE FROM Likes 
+      WHERE user_id = @userId AND song_id = @songId
+    `;
+
+    const insertQuery = `
+      INSERT INTO Likes (user_id, song_id, created_at) 
+      VALUES (@userId, @songId, GETDATE())
+    `;
+
+    // Create a new SQL request
+    const request = new sql.Request();
+
+    // Check if the song is already liked
+    request.input('userId', sql.Int, userId);
+    request.input('songId', sql.Int, songId);
+
+    const checkResult = await request.query(checkQuery);
+
+    if (checkResult.recordset.length > 0) {
+      // Unlike the song
+      const deleteResult = await request.query(deleteQuery);
+      return res.status(200).json({ message: 'Song unliked successfully.' });
+    } else {
+      // Like the song
+      const insertResult = await request.query(insertQuery);
+      return res.status(201).json({ message: 'Song liked successfully.' });
+    }
+  } catch (err) {
+    console.error('Error toggling like/unlike:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/toggle-flag', async (req, res) => {
+  const { userId, songId, flag } = req.body; // `flag` should be true (to flag) or false (to unflag)
+
+  if (!userId || !songId || flag === undefined) {
+    return res.status(400).json({ error: 'User ID, Song ID, and flag status are required.' });
+  }
+
+  try {
+    const updateFlagQuery = `
+      UPDATE Song
+      SET report_times = report_times + @flagAdjustment
+      WHERE song_id = @songId;
+    `;
+
+    // Prevent report_times from going below zero
+    const ensureNonNegativeQuery = `
+      UPDATE Song
+      SET report_times = 0
+      WHERE song_id = @songId AND report_times < 0;
+    `;
+
+    // Create a new SQL request
+    const request = new sql.Request();
+
+    // Calculate the flag adjustment (+1 for flag, -1 for unflag)
+    const flagAdjustment = flag ? 1 : -1;
+
+    // Update the flag status in the `Song` table
+    request.input('flagAdjustment', sql.Int, flagAdjustment);
+    request.input('songId', sql.Int, songId);
+
+    await request.query(updateFlagQuery);
+
+    // Ensure report_times does not drop below zero
+    await request.query(ensureNonNegativeQuery);
+
+    if (flag) {
+      res.status(200).json({ message: 'Song flagged successfully.' });
+    } else {
+      res.status(200).json({ message: 'Song unflagged successfully.' });
+    }
+  } catch (err) {
+    console.error('Error toggling flag:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 //End Thinh Bui
@@ -1458,55 +1631,6 @@ router.post('/create-admin', async (req, res) => {
   }
 });
 // End /create-admin
-
-router.get('/songs/:song_id/stream', async (req, res) => {
-  try {
-    const songId = req.params.song_id;
-    const request = new sql.Request();
-    request.input('song_id', sql.Int, songId);
-
-    const result = await request.query(`
-      SELECT SF.song_file, SF.file_name 
-      FROM SongFile SF 
-      WHERE SF.song_id = @song_id
-    `);
-
-    if (!result.recordset[0]) {
-      return res.status(404).json({ error: 'Song file not found' });
-    }
-
-    const songBuffer = result.recordset[0].song_file;
-    
-    // Set appropriate headers for audio streaming
-    res.setHeader('Content-Type', 'audio/mpeg');
-    res.setHeader('Content-Length', songBuffer.length);
-    res.setHeader('Accept-Ranges', 'bytes');
-
-    // Handle range requests
-    const range = req.headers.range;
-    if (range) {
-      const parts = range.replace(/bytes=/, "").split("-");
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : songBuffer.length - 1;
-      const chunksize = (end - start) + 1;
-
-      res.setHeader('Content-Range', `bytes ${start}-${end}/${songBuffer.length}`);
-      res.setHeader('Content-Length', chunksize);
-      res.status(206);
-      
-      const chunk = Buffer.from(songBuffer.slice(start, end + 1));
-      res.end(chunk);
-    } else {
-      // Send entire file if no range is requested
-      res.end(songBuffer);
-    }
-
-  } catch (error) {
-    console.error('Error streaming song:', error);
-    res.status(500).json({ error: 'Error streaming song' });
-  }
-});
-
 
 export default router;
 
